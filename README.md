@@ -6,6 +6,8 @@
 
 It ships universal recognizers for emails, phone numbers, credit cards, IBANs, IP addresses, URLs, API keys, JWTs, AWS access keys, MAC addresses, crypto wallet addresses, and context-dependent dates of birth. Locale bundles add identifiers such as US SSNs, Dutch BSNs, UK NINO/NHS numbers, German Steuer-IDs, Indian Aadhaar/PAN values, Brazilian CPF/CNPJ values, and French INSEE/NIR numbers.
 
+See [supported entities](docs/supported-entities.md) for the full detection matrix, including validation algorithms, confidence ranges, and examples.
+
 ## Install
 
 ```bash
@@ -84,10 +86,15 @@ The benchmark harness covers 1KB through 10MB inputs for plain text, JSON, and C
 
 - [Adding recognizers](docs/adding-recognizers.md)
 - [Adding locale recognizers](docs/locale-guide.md)
+- [Supported entities](docs/supported-entities.md)
 - [CI/CD integration](docs/ci-cd-integration.md)
 - [Benchmarking](docs/benchmarking.md)
 - [Release checklist](docs/release-checklist.md)
 
 ## Status
 
-The project is approaching release polish. See [Documentation/IMPLEMENTATION_STATUS.md](Documentation/IMPLEMENTATION_STATUS.md) for completed work and known gaps.
+The first Rust release is published on crates.io. See [implementation status](docs/implementation-status.md) for completed work and known gaps.
+
+## License
+
+MIT. See [LICENSE.md](LICENSE.md).
