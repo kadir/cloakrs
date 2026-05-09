@@ -3,106 +3,106 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
-  workflow_dispatch:
+      - 'v*'
 
 permissions:
   contents: write
 
 jobs:
   build:
-    name: Build ${{ matrix.asset_name }}
+    name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            asset_name: linux-x86_64
-            binary_name: cloakrs
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            asset_name: linux-aarch64
-            binary_name: cloakrs
-          - os: macos-13
-            target: x86_64-apple-darwin
-            asset_name: macos-x86_64
-            binary_name: cloakrs
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            asset_name: macos-aarch64
-            binary_name: cloakrs
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            asset_name: windows-x86_64
-            binary_name: cloakrs.exe
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            archive: tar.gz
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            archive: tar.gz
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            archive: tar.gz
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            archive: tar.gz
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            archive: tar.gz
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            archive: zip
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
 
-      - name: Cache Cargo
-        uses: Swatinem/rust-cache@v2
+      - name: Install cross (Linux cross-compilation)
+        if: matrix.os == 'ubuntu-latest' && matrix.target != 'x86_64-unknown-linux-gnu'
+        run: cargo install cross --locked
 
-      - name: Install Linux cross linker
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+      - name: Install musl tools
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
 
-      - name: Configure Linux cross linker
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          mkdir -p .cargo
-          cat >> .cargo/config.toml <<'EOF'
-          [target.aarch64-unknown-linux-gnu]
-          linker = "aarch64-linux-gnu-gcc"
-          EOF
-
-      - name: Build release binary
+      - name: Build (native)
+        if: matrix.target == 'x86_64-unknown-linux-gnu' || matrix.os == 'macos-latest' || matrix.os == 'windows-latest'
         run: cargo build --release -p cloakrs-cli --target ${{ matrix.target }}
 
-      - name: Package binary
-        shell: bash
-        run: |
-          mkdir -p dist
-          cp "target/${{ matrix.target }}/release/${{ matrix.binary_name }}" "dist/${{ matrix.binary_name }}"
-          cd dist
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            7z a "cloakrs-${{ matrix.asset_name }}.zip" "${{ matrix.binary_name }}"
-            powershell -Command "Get-FileHash cloakrs-${{ matrix.asset_name }}.zip -Algorithm SHA256 | ForEach-Object { $_.Hash.ToLower() + '  cloakrs-${{ matrix.asset_name }}.zip' }" > "cloakrs-${{ matrix.asset_name }}.sha256"
-          else
-            tar -czf "cloakrs-${{ matrix.asset_name }}.tar.gz" "${{ matrix.binary_name }}"
-            shasum -a 256 "cloakrs-${{ matrix.asset_name }}.tar.gz" > "cloakrs-${{ matrix.asset_name }}.sha256"
-          fi
+      - name: Build (cross)
+        if: matrix.os == 'ubuntu-latest' && matrix.target != 'x86_64-unknown-linux-gnu'
+        run: cross build --release -p cloakrs-cli --target ${{ matrix.target }}
 
-      - name: Upload artifacts
+      - name: Package (tar.gz)
+        if: matrix.archive == 'tar.gz'
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar -czf ../../../cloakrs-${{ github.ref_name }}-${{ matrix.target }}.tar.gz cloakrs
+          cd ../../..
+
+      - name: Package (zip)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "target/${{ matrix.target }}/release/cloakrs.exe" -DestinationPath "cloakrs-${{ github.ref_name }}-${{ matrix.target }}.zip"
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cloakrs-${{ matrix.asset_name }}
-          path: dist/cloakrs-${{ matrix.asset_name }}.*
+          name: cloakrs-${{ matrix.target }}
+          path: cloakrs-${{ github.ref_name }}-${{ matrix.target }}.*
 
-  publish:
-    name: Publish GitHub release
-    runs-on: ubuntu-latest
+  release:
+    name: Create Release
     needs: build
-
+    runs-on: ubuntu-latest
     steps:
-      - name: Download artifacts
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: dist
+          path: artifacts
           merge-multiple: true
 
-      - name: Create release
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          shasum -a 256 cloakrs-* > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
-          generate_release_notes: true
-
+          generate_release_notes: false
+          files: |
+            artifacts/cloakrs-*
+            artifacts/SHA256SUMS.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
