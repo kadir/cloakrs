@@ -1,0 +1,19 @@
+[package]
+name = "cloakrs-locales"
+description = "Locale-specific PII recognizers for cloakrs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/cloakrs-locales"
+readme = "../../README.md"
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+cloakrs-core = { path = "../cloakrs-core", version = "0.1.0" }
+cloakrs-patterns = { path = "../cloakrs-patterns", version = "0.1.0" }
+once_cell.workspace = true
+regex.workspace = true

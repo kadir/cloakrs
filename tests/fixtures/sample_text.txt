@@ -1,0 +1,50 @@
+Support ticket 0001: Jane Doe can be reached at jane.doe@example.com.
+Support ticket 0002: phone: +1 (555) 123-4567 for the synthetic customer.
+Support ticket 0003: billing card 4111 1111 1111 1111 is a test Visa number.
+Support ticket 0004: refund IBAN NL91ABNA0417164300 belongs to fixture data.
+Support ticket 0005: SSN 123-45-6789 is fake test data.
+Support ticket 0006: Contact backup.user+ops@example.org for escalation.
+Support ticket 0007: UK caller uses +44 7911 123456.
+Support ticket 0008: German transfer account DE89 3704 0044 0532 0130 00.
+Support ticket 0009: Amex test card 3782 822463 10005.
+Support ticket 0010: No PII appears on this line.
+Support ticket 0011: "quoted"@example.com is a synthetic email.
+Support ticket 0012: mobile +31 6 12345678 for a fake Dutch user.
+Support ticket 0013: Mastercard test value 5555 5555 5555 4444.
+Support ticket 0014: GB IBAN GB29 NWBK 6016 1331 9268 19.
+Support ticket 0015: social security 234-56-7890 for test flow only.
+Support ticket 0016: Alice uses alice@example.test.
+Support ticket 0017: Bob uses bob.smith@example.net.
+Support ticket 0018: Call center number is (555) 123-4567.
+Support ticket 0019: Discover test card 6011 1111 1111 1117.
+Support ticket 0020: Belgian IBAN BE68 5390 0754 7034.
+Support ticket 0021: synthetic SSN 345-67-8901.
+Support ticket 0022: No PII appears on this line.
+Support ticket 0023: Email qa-team@example.com for QA.
+Support ticket 0024: Phone 555-123-4567 appears in US format.
+Support ticket 0025: Visa compact 4111111111111111 appears here.
+Support ticket 0026: French IBAN FR14 2004 1010 0505 0001 3M02 606.
+Support ticket 0027: fake SSN 456-78-9012.
+Support ticket 0028: No PII appears on this line.
+Support ticket 0029: ops@example.com owns the fixture record.
+Support ticket 0030: tel: +49 30 1234 5678.
+Support ticket 0031: payment card 2221 0000 0000 0009.
+Support ticket 0032: Swiss IBAN CH93 0076 2011 6238 5295 7.
+Support ticket 0033: SSN 567-89-0123.
+Support ticket 0034: No PII appears on this line.
+Support ticket 0035: user+tag@mail.sub.example.co.uk.
+Support ticket 0036: fax 555.123.4567.
+Support ticket 0037: card 4222222222222.
+Support ticket 0038: Spanish IBAN ES91 2100 0418 4502 0005 1332.
+Support ticket 0039: tax id 678-90-1234.
+Support ticket 0040: No PII appears on this line.
+Support ticket 0041: billing@example.test.
+Support ticket 0042: +33 6 12 34 56 78.
+Support ticket 0043: card 371449635398431.
+Support ticket 0044: Italian IBAN IT60 X054 2811 1010 0000 0123 456.
+Support ticket 0045: SSN 789-01-2345.
+Support ticket 0046: No PII appears on this line.
+Support ticket 0047: contact@example.org is used in docs.
+Support ticket 0048: +1.555.123.4567.
+Support ticket 0049: 4111-1111-1111-1111.
+Support ticket 0050: Final fake SSN 890-12-3456.

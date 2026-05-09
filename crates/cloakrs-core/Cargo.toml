@@ -1,0 +1,23 @@
+[package]
+name = "cloakrs-core"
+description = "Core PII scanning, recognizer, and masking primitives for cloakrs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme = "../../README.md"
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+aes-gcm.workspace = true
+base64.workspace = true
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+csv.workspace = true
+sha2.workspace = true
+thiserror.workspace = true

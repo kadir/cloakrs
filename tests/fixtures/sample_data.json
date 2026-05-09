@@ -1,0 +1,30 @@
+{
+  "users": [
+    {
+      "id": "u-001",
+      "name": "Jane Doe",
+      "email": "jane.doe@example.com",
+      "phone": "+1 (555) 123-4567",
+      "ssn": "123-45-6789",
+      "billing": {
+        "card": "4111 1111 1111 1111",
+        "iban": "NL91ABNA0417164300"
+      }
+    },
+    {
+      "id": "u-002",
+      "name": "Alex Smith",
+      "email": "alex.smith@example.org",
+      "phone": "+44 7911 123456",
+      "ssn": "234-56-7890",
+      "billing": {
+        "card": "5555 5555 5555 4444",
+        "iban": "GB29 NWBK 6016 1331 9268 19"
+      }
+    }
+  ],
+  "metadata": {
+    "owner_email": "ops@example.com",
+    "fixture": true
+  }
+}

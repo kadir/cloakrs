@@ -1,0 +1,38 @@
+[package]
+name = "cloakrs-cli"
+description = "Command-line PII scanner and masker powered by cloakrs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/cloakrs-cli"
+readme = "../../README.md"
+keywords.workspace = true
+categories.workspace = true
+
+[[bin]]
+name = "cloakrs"
+path = "src/main.rs"
+
+[dependencies]
+cloakrs-adapters = { path = "../cloakrs-adapters", version = "0.1.0" }
+cloakrs-core = { path = "../cloakrs-core", version = "0.1.0" }
+cloakrs-locales = { path = "../cloakrs-locales", version = "0.1.0" }
+cloakrs-patterns = { path = "../cloakrs-patterns", version = "0.1.0" }
+clap.workspace = true
+indicatif.workspace = true
+ignore.workspace = true
+rayon.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "scan_benchmark"
+path = "benches/scan_benchmark.rs"
+harness = false

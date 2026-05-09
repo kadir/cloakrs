@@ -1,0 +1,6 @@
+2026-05-08T10:00:00Z INFO user=jane.doe@example.com action=login
+2026-05-08T10:01:00Z WARN leaked phone=+1 (555) 123-4567 in request body
+2026-05-08T10:02:00Z INFO payment_card="4111 1111 1111 1111" test=true
+2026-05-08T10:03:00Z INFO iban=NL91ABNA0417164300 refund queued
+2026-05-08T10:04:00Z ERROR ssn=123-45-6789 appeared in debug log
+{"level":"info","email":"ops@example.com","message":"json log fixture"}
