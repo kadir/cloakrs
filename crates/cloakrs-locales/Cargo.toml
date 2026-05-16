@@ -13,7 +13,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-cloakrs-core = { path = "../cloakrs-core", version = "0.1.0" }
-cloakrs-patterns = { path = "../cloakrs-patterns", version = "0.1.0" }
+cloakrs-core = { path = "../cloakrs-core", version = "0.2.0" }
+cloakrs-patterns = { path = "../cloakrs-patterns", version = "0.2.0" }
 once_cell.workspace = true
 regex.workspace = true

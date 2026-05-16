@@ -4,7 +4,7 @@
 
 `cloakrs` is a Rust library and CLI for detecting and masking personally identifiable information in text, logs, JSON, CSV, and database dumps.
 
-It ships universal recognizers for emails, phone numbers, credit cards, IBANs, IP addresses, URLs, API keys, JWTs, AWS access keys, MAC addresses, crypto wallet addresses, and context-dependent dates of birth. Locale bundles add identifiers such as US SSNs, Dutch BSNs, UK NINO/NHS numbers, German Steuer-IDs, Indian Aadhaar/PAN values, Brazilian CPF/CNPJ values, and French INSEE/NIR numbers.
+It ships universal recognizers for emails, phone numbers, credit cards, IBANs, IP addresses, URLs, API keys, JWTs, AWS access keys, MAC addresses, hostnames, user home paths, crypto wallet addresses, and context-dependent dates of birth. Locale bundles add identifiers such as US SSNs, Dutch BSNs, UK NINO/NHS numbers, German Steuer-IDs, Indian Aadhaar/PAN values, Brazilian CPF/CNPJ values, and French INSEE/NIR numbers.
 
 See [supported entities](docs/supported-entities.md) for the full detection matrix, including validation algorithms, confidence ranges, and examples.
 

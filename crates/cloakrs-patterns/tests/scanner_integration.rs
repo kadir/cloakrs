@@ -24,6 +24,8 @@ fn test_scanner_with_default_patterns_detects_sprint_2_entities() {
         "jwt: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abc123456789_xyz\n",
         "api_key=sk_live_0123456789abcdef\n",
         "mac: 00:1A:2B:3C:4D:5E\n",
+        "host: db-prod-01.internal.company.com\n",
+        "path: /home/kadir/projects/app\n",
         "eth wallet 0xde709f2102306220921060314715629080e2fb77\n",
         "DOB: 1980-04-23\n",
         "ssn: 123-45-6789\n",
@@ -74,6 +76,14 @@ fn test_scanner_with_default_patterns_detects_sprint_2_entities() {
     assert!(result
         .findings
         .iter()
+        .any(|finding| finding.entity_type == EntityType::Hostname));
+    assert!(result
+        .findings
+        .iter()
+        .any(|finding| finding.entity_type == EntityType::UserPath));
+    assert!(result
+        .findings
+        .iter()
         .any(|finding| finding.entity_type == EntityType::CryptoAddress));
     assert!(result
         .findings
@@ -95,6 +105,8 @@ fn test_scanner_with_default_patterns_detects_sprint_2_entities() {
     assert!(masked.contains("[JWT]"));
     assert!(masked.contains("[API_KEY]"));
     assert!(masked.contains("[MAC_ADDR]"));
+    assert!(masked.contains("[HOSTNAME]"));
+    assert!(masked.contains("[USER_PATH]"));
     assert!(masked.contains("[CRYPTO_ADDR]"));
     assert!(masked.contains("[DOB]"));
     assert!(masked.contains("[SSN]"));

@@ -242,7 +242,7 @@ checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
 name = "cloakrs-adapters"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "cloakrs-core",
  "cloakrs-patterns",
@@ -253,7 +253,7 @@ dependencies = [
 
 [[package]]
 name = "cloakrs-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "clap",
  "cloakrs-adapters",
@@ -271,7 +271,7 @@ dependencies = [
 
 [[package]]
 name = "cloakrs-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "aes-gcm",
  "base64",
@@ -285,7 +285,7 @@ dependencies = [
 
 [[package]]
 name = "cloakrs-locales"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "cloakrs-core",
  "cloakrs-patterns",
@@ -295,7 +295,7 @@ dependencies = [
 
 [[package]]
 name = "cloakrs-patterns"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "cloakrs-core",
  "once_cell",

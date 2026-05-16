@@ -13,10 +13,10 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-cloakrs-core = { path = "../cloakrs-core", version = "0.1.0" }
+cloakrs-core = { path = "../cloakrs-core", version = "0.2.0" }
 csv.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
-cloakrs-patterns = { path = "../cloakrs-patterns", version = "0.1.0" }
+cloakrs-patterns = { path = "../cloakrs-patterns", version = "0.2.0" }

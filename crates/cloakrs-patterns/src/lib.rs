@@ -1,8 +1,8 @@
 //! Universal PII recognizers for cloakrs.
 //!
 //! This crate provides recognizers for email, phone, credit cards, IBAN, IP
-//! addresses, URLs, secrets, MAC addresses, crypto wallet addresses, and dates
-//! of birth.
+//! addresses, URLs, secrets, MAC addresses, hostnames, user home paths, crypto
+//! wallet addresses, and dates of birth.
 //!
 //! # Examples
 //!
@@ -19,24 +19,28 @@ mod credit_card;
 mod crypto;
 mod date_of_birth;
 mod email;
+mod hostname;
 mod iban;
 mod ip_address;
 mod mac_address;
 mod phone;
 mod ssn;
 mod url;
+mod user_path;
 
 pub use api_key::{ApiKeyRecognizer, AwsAccessKeyRecognizer, JwtRecognizer};
 pub use credit_card::{card_brand, luhn_valid, CardBrand, CreditCardRecognizer};
 pub use crypto::CryptoAddressRecognizer;
 pub use date_of_birth::DateOfBirthRecognizer;
 pub use email::EmailRecognizer;
+pub use hostname::HostnameRecognizer;
 pub use iban::{iban_country_length, iban_mod97_valid, IbanRecognizer};
 pub use ip_address::IpAddressRecognizer;
 pub use mac_address::MacAddressRecognizer;
 pub use phone::PhoneRecognizer;
 pub use ssn::SsnRecognizer;
 pub use url::UrlRecognizer;
+pub use user_path::UserPathRecognizer;
 
 use cloakrs_core::RecognizerRegistry;
 
@@ -69,6 +73,8 @@ pub fn register_default_recognizers(registry: &mut RecognizerRegistry) {
     registry.register(IbanRecognizer);
     registry.register(IpAddressRecognizer);
     registry.register(UrlRecognizer);
+    registry.register(HostnameRecognizer);
+    registry.register(UserPathRecognizer);
     registry.register(AwsAccessKeyRecognizer);
     registry.register(JwtRecognizer);
     registry.register(ApiKeyRecognizer);

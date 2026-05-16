@@ -191,6 +191,10 @@ pub enum EntityType {
     CryptoAddress,
     /// MAC address.
     MacAddress,
+    /// Internal hostname or machine name.
+    Hostname,
+    /// User home-directory path.
+    UserPath,
     /// Passport number.
     PassportNumber,
     /// Driver's license number.
@@ -236,6 +240,8 @@ impl EntityType {
             Self::AwsAccessKey => "[AWS_KEY]".to_string(),
             Self::CryptoAddress => "[CRYPTO_ADDR]".to_string(),
             Self::MacAddress => "[MAC_ADDR]".to_string(),
+            Self::Hostname => "[HOSTNAME]".to_string(),
+            Self::UserPath => "[USER_PATH]".to_string(),
             Self::PassportNumber => "[PASSPORT]".to_string(),
             Self::DriversLicense => "[DRIVERS_LICENSE]".to_string(),
             Self::Ssn => "[SSN]".to_string(),

@@ -76,7 +76,13 @@ impl MaskStrategy {
                 *reveal_suffix,
                 *mask_char,
             )),
-            Self::Hash { salt } => Ok(hash_mask(finding, salt.as_deref(), DEFAULT_HASH_LENGTH)),
+            Self::Hash { salt } => {
+                if finding.entity_type == EntityType::UserPath {
+                    Ok(hash_user_path(&finding.text, salt.as_deref()))
+                } else {
+                    Ok(hash_mask(finding, salt.as_deref(), DEFAULT_HASH_LENGTH))
+                }
+            }
             Self::Replace => Ok(replace_mask(finding)),
             Self::Encrypt { key } => encrypt_mask(finding, key),
             Self::Custom(replacement) => Ok(replacement.clone()),
@@ -244,6 +250,8 @@ fn partial_mask(
         EntityType::Ssn => mask_preserving_separators(&finding.text, 0, 4, mask_char),
         EntityType::Iban => mask_preserving_separators(&finding.text, 2, 4, mask_char),
         EntityType::IpAddress => mask_ip(&finding.text),
+        EntityType::Hostname => mask_hostname(&finding.text, mask_char),
+        EntityType::UserPath => mask_user_path(&finding.text, mask_char),
         EntityType::Bsn => mask_preserving_separators(&finding.text, 0, 3, mask_char),
         EntityType::Aadhaar => mask_preserving_separators(&finding.text, 0, 4, mask_char),
         EntityType::Jwt => mask_jwt(&finding.text),
@@ -255,15 +263,30 @@ fn partial_mask(
 }
 
 fn hash_mask(finding: &PiiEntity, salt: Option<&str>, length: usize) -> String {
+    hash_value(&finding.text, salt, length)
+}
+
+fn hash_value(value: &str, salt: Option<&str>, length: usize) -> String {
     let length = length.clamp(MIN_HASH_LENGTH, MAX_HASH_LENGTH);
     let mut hasher = Sha256::new();
     if let Some(salt) = salt {
         hasher.update(salt.as_bytes());
     }
-    hasher.update(finding.text.as_bytes());
+    hasher.update(value.as_bytes());
     let digest = hasher.finalize();
     let hex = to_hex(&digest);
     format!("HASH:{}", &hex[..length])
+}
+
+fn hash_user_path(path: &str, salt: Option<&str>) -> String {
+    let Some((range, username)) = user_path_username_range(path) else {
+        return hash_value(path, salt, DEFAULT_HASH_LENGTH);
+    };
+    replace_range_owned(
+        path,
+        range,
+        &hash_value(username, salt, DEFAULT_HASH_LENGTH),
+    )
 }
 
 fn replace_mask(finding: &PiiEntity) -> String {
@@ -288,6 +311,8 @@ fn replace_mask(finding: &PiiEntity) -> String {
         EntityType::AwsAccessKey => "AKIAIOSFODNN7EXAMPLE".to_string(),
         EntityType::CryptoAddress => "0x0000000000000000000000000000000000000000".to_string(),
         EntityType::MacAddress => "02:00:00:00:00:01".to_string(),
+        EntityType::Hostname => "host.example.test".to_string(),
+        EntityType::UserPath => "/home/user/redacted".to_string(),
         _ => finding
             .entity_type
             .redaction_tag()
@@ -449,6 +474,110 @@ fn mask_ip(ip: &str) -> String {
     }
 }
 
+fn mask_hostname(hostname: &str, mask_char: char) -> String {
+    let labels: Vec<&str> = hostname.split('.').collect();
+    if labels.len() < 2 {
+        return mask_generic(hostname, 0, 0, mask_char);
+    }
+
+    let last_index = labels.len() - 1;
+    labels
+        .iter()
+        .enumerate()
+        .map(|(index, label)| {
+            if index == last_index || is_preserved_hostname_label(label) {
+                (*label).to_string()
+            } else if index == 0 {
+                mask_hostname_first_label(label, mask_char)
+            } else {
+                mask_preserving_label_separators(label, mask_char)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(".")
+}
+
+fn is_preserved_hostname_label(label: &str) -> bool {
+    matches!(
+        label.to_ascii_lowercase().as_str(),
+        "internal" | "local" | "lan" | "corp" | "private" | "intranet"
+    )
+}
+
+fn mask_hostname_first_label(label: &str, mask_char: char) -> String {
+    if let Some((prefix, rest)) = label.split_once('-') {
+        if !prefix.is_empty() && !rest.is_empty() {
+            return format!(
+                "{prefix}-{}",
+                mask_preserving_label_separators(rest, mask_char)
+            );
+        }
+    }
+    mask_generic(label, 2.min(label.chars().count()), 0, mask_char)
+}
+
+fn mask_preserving_label_separators(label: &str, mask_char: char) -> String {
+    label
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                mask_char
+            } else {
+                c
+            }
+        })
+        .collect()
+}
+
+fn mask_user_path(path: &str, mask_char: char) -> String {
+    let Some((range, username)) = user_path_username_range(path) else {
+        return mask_generic(path, 0, 0, mask_char);
+    };
+    replace_range_owned(
+        path,
+        range,
+        &mask_char.to_string().repeat(username.chars().count()),
+    )
+}
+
+fn user_path_username_range(path: &str) -> Option<(std::ops::Range<usize>, &str)> {
+    if let Some(rest) = path.strip_prefix("/home/") {
+        return username_range_after_prefix(path, "/home/".len(), rest, '/');
+    }
+    if let Some(rest) = path.strip_prefix("/Users/") {
+        return username_range_after_prefix(path, "/Users/".len(), rest, '/');
+    }
+    let lower = path.to_ascii_lowercase();
+    if let Some(index) = lower.find(r"\users\") {
+        let prefix_end = index + r"\Users\".len();
+        return username_range_after_prefix(path, prefix_end, &path[prefix_end..], '\\');
+    }
+    if path == "/root" || path.starts_with("/root/") {
+        return Some((1..5, &path[1..5]));
+    }
+    None
+}
+
+fn username_range_after_prefix<'a>(
+    path: &'a str,
+    prefix_end: usize,
+    rest: &'a str,
+    separator: char,
+) -> Option<(std::ops::Range<usize>, &'a str)> {
+    let username_len = rest.find(separator).unwrap_or(rest.len());
+    (username_len > 0).then(|| {
+        let start = prefix_end;
+        let end = prefix_end + username_len;
+        (start..end, &path[start..end])
+    })
+}
+
+fn replace_range_owned(value: &str, range: std::ops::Range<usize>, replacement: &str) -> String {
+    let mut result = value.to_string();
+    result.replace_range(range, replacement);
+    result
+}
+
 fn mask_jwt(jwt: &str) -> String {
     let prefix: String = jwt.chars().take(10).collect();
     format!("{prefix}[TRUNCATED]")
@@ -532,6 +661,47 @@ mod tests {
     }
 
     #[test]
+    fn test_partial_mask_hostname_preserves_structure() {
+        let item = finding(
+            EntityType::Hostname,
+            0,
+            31,
+            "db-prod-01.internal.company.com",
+        );
+        let masked = MaskStrategy::PartialMask {
+            reveal_prefix: 0,
+            reveal_suffix: 0,
+            mask_char: '*',
+        }
+        .replacement(&item);
+        assert_eq!(masked, "db-****-**.internal.*******.com");
+    }
+
+    #[test]
+    fn test_partial_mask_user_path_masks_username_only() {
+        let item = finding(EntityType::UserPath, 0, 24, "/home/kadir/projects/app");
+        let masked = MaskStrategy::PartialMask {
+            reveal_prefix: 0,
+            reveal_suffix: 0,
+            mask_char: '*',
+        }
+        .replacement(&item);
+        assert_eq!(masked, "/home/*****/projects/app");
+    }
+
+    #[test]
+    fn test_partial_mask_windows_user_path_masks_username_only() {
+        let item = finding(EntityType::UserPath, 0, 25, r"C:\Users\john.doe\Desktop");
+        let masked = MaskStrategy::PartialMask {
+            reveal_prefix: 0,
+            reveal_suffix: 0,
+            mask_char: '*',
+        }
+        .replacement(&item);
+        assert_eq!(masked, r"C:\Users\********\Desktop");
+    }
+
+    #[test]
     fn test_apply_mask_invalid_span_returns_error() {
         let text = "short";
         let findings = [finding(EntityType::Email, 0, 99, "short")];
@@ -562,6 +732,14 @@ mod tests {
         }
         .replacement(&item);
         assert_ne!(without_salt, with_salt);
+    }
+
+    #[test]
+    fn test_hash_mask_user_path_hashes_username_only() {
+        let item = finding(EntityType::UserPath, 0, 24, "/home/kadir/projects/app");
+        let replacement = MaskStrategy::Hash { salt: None }.replacement(&item);
+        assert!(replacement.starts_with("/home/HASH:"));
+        assert!(replacement.ends_with("/projects/app"));
     }
 
     #[test]
