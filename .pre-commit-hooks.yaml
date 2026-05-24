@@ -1,0 +1,7 @@
+- id: cloakrs-scan
+  name: cloakrs PII scan
+  description: Scan staged files for PII before commit. Requires the cloakrs binary on PATH.
+  entry: cloakrs pre-commit
+  language: system
+  types: [text]
+  pass_filenames: true

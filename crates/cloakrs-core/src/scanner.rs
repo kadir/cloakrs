@@ -24,6 +24,8 @@ pub struct ScannerBuilder {
     locale: Locale,
     strategy: Option<MaskStrategy>,
     min_confidence: Confidence,
+    allow_list: Vec<String>,
+    deny_list: Vec<String>,
 }
 
 impl Default for ScannerBuilder {
@@ -33,6 +35,8 @@ impl Default for ScannerBuilder {
             locale: Locale::Universal,
             strategy: Some(MaskStrategy::default()),
             min_confidence: Confidence::ZERO,
+            allow_list: Vec::new(),
+            deny_list: Vec::new(),
         }
     }
 }
@@ -97,6 +101,38 @@ impl ScannerBuilder {
         Ok(self)
     }
 
+    /// Adds literal values that should never be reported or masked.
+    #[must_use]
+    pub fn allow_list<I, S>(mut self, values: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.allow_list.extend(
+            values
+                .into_iter()
+                .map(Into::into)
+                .filter(|value| !value.is_empty()),
+        );
+        self
+    }
+
+    /// Adds literal values that should always be reported and masked.
+    #[must_use]
+    pub fn deny_list<I, S>(mut self, values: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.deny_list.extend(
+            values
+                .into_iter()
+                .map(Into::into)
+                .filter(|value| !value.is_empty()),
+        );
+        self
+    }
+
     /// Builds a scanner.
     pub fn build(self) -> Result<Scanner> {
         if self.registry.is_empty() {
@@ -108,6 +144,8 @@ impl ScannerBuilder {
             locale: self.locale,
             strategy: self.strategy,
             min_confidence: self.min_confidence,
+            allow_list: self.allow_list,
+            deny_list: self.deny_list,
         })
     }
 }
@@ -118,6 +156,8 @@ pub struct Scanner {
     locale: Locale,
     strategy: Option<MaskStrategy>,
     min_confidence: Confidence,
+    allow_list: Vec<String>,
+    deny_list: Vec<String>,
 }
 
 impl Scanner {
@@ -131,6 +171,9 @@ impl Scanner {
     pub fn scan(&self, text: &str) -> Result<ScanResult> {
         let started = Instant::now();
         let mut findings = self.registry.scan_locale(text, &self.locale);
+        findings.extend(deny_list_findings(text, &self.deny_list));
+        let allow_spans = literal_spans(text, &self.allow_list);
+        findings.retain(|finding| !allow_spans.iter().any(|span| span.overlaps(finding.span)));
         findings.retain(|finding| finding.confidence >= self.min_confidence);
         findings = deduplicate_for_reporting(&findings);
         findings.sort_by_key(|finding| finding.span.start);
@@ -149,6 +192,36 @@ impl Scanner {
             stats,
         })
     }
+}
+
+fn deny_list_findings(text: &str, deny_list: &[String]) -> Vec<PiiEntity> {
+    literal_spans(text, deny_list)
+        .into_iter()
+        .map(|span| PiiEntity {
+            entity_type: EntityType::Custom("DenyList".to_string()),
+            span,
+            text: text[span.start..span.end].to_string(),
+            confidence: Confidence::ONE,
+            recognizer_id: "deny_list_v1".to_string(),
+        })
+        .collect()
+}
+
+fn literal_spans(text: &str, values: &[String]) -> Vec<crate::Span> {
+    let mut spans = Vec::new();
+    for value in values {
+        if value.is_empty() {
+            continue;
+        }
+        let mut search_start = 0;
+        while let Some(offset) = text[search_start..].find(value) {
+            let start = search_start + offset;
+            let end = start + value.len();
+            spans.push(crate::Span::new(start, end));
+            search_start = end;
+        }
+    }
+    spans
 }
 
 fn deduplicate_for_reporting(findings: &[PiiEntity]) -> Vec<PiiEntity> {
@@ -330,5 +403,36 @@ mod tests {
             .unwrap();
         let result = scanner.scan("Contact user@example.com").unwrap();
         assert!(result.findings.is_empty());
+    }
+
+    #[test]
+    fn test_scanner_allow_list_suppresses_overlapping_findings() {
+        let scanner = Scanner::builder()
+            .recognizer(EmailRecognizer)
+            .allow_list(["user@example.com"])
+            .build()
+            .unwrap();
+        let result = scanner.scan("Contact user@example.com").unwrap();
+        assert!(result.findings.is_empty());
+        assert_eq!(
+            result.masked_text.as_deref(),
+            Some("Contact user@example.com")
+        );
+    }
+
+    #[test]
+    fn test_scanner_deny_list_adds_custom_finding() {
+        let scanner = Scanner::builder()
+            .recognizer(EmailRecognizer)
+            .deny_list(["PRJ-12345"])
+            .build()
+            .unwrap();
+        let result = scanner.scan("ticket PRJ-12345").unwrap();
+        assert_eq!(result.findings.len(), 1);
+        assert_eq!(
+            result.findings[0].entity_type,
+            EntityType::Custom("DenyList".to_string())
+        );
+        assert_eq!(result.masked_text.as_deref(), Some("ticket [DENYLIST]"));
     }
 }

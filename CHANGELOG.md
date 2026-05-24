@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.0] - 2026-05-24
+
+### Added
+- Dictionary-backed person-name and US-style physical-address recognizers.
+- Scanner literal allow and deny lists, with `.cloakrs.toml` support in the CLI.
+- `PromptSanitizer` and prompt placeholder mapping helpers for LLM workflows.
+- `cloakrs pre-commit`, pre-commit hook metadata, and structured JSONL audit logging.
+- `cloakrs-tracing` with `RedactLayer` for sanitized tracing event output.
+- A 10,000-line false-positive corpus test for default recognizers.
+
 ## [0.2.0] - 2026-05-16
 
 ### Added

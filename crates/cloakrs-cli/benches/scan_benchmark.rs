@@ -2,7 +2,8 @@ use cloakrs_core::{Locale, MaskStrategy, Recognizer};
 use cloakrs_patterns::{
     ApiKeyRecognizer, AwsAccessKeyRecognizer, CreditCardRecognizer, CryptoAddressRecognizer,
     DateOfBirthRecognizer, EmailRecognizer, IbanRecognizer, IpAddressRecognizer, JwtRecognizer,
-    MacAddressRecognizer, PhoneRecognizer, SsnRecognizer, UrlRecognizer,
+    MacAddressRecognizer, PersonNameRecognizer, PhoneRecognizer, PhysicalAddressRecognizer,
+    SsnRecognizer, UrlRecognizer,
 };
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 
@@ -57,6 +58,8 @@ fn bench_recognizers(c: &mut Criterion) {
     recognizer_bench!("mac_address", MacAddressRecognizer);
     recognizer_bench!("crypto_address", CryptoAddressRecognizer);
     recognizer_bench!("date_of_birth", DateOfBirthRecognizer);
+    recognizer_bench!("person_name", PersonNameRecognizer);
+    recognizer_bench!("physical_address", PhysicalAddressRecognizer);
 
     group.finish();
 }

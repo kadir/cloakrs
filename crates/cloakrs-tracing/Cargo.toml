@@ -1,18 +1,18 @@
 [package]
-name = "cloakrs-patterns"
-description = "Universal PII recognizers for cloakrs"
+name = "cloakrs-tracing"
+description = "tracing integration for redacting PII with cloakrs"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
-documentation = "https://docs.rs/cloakrs-patterns"
+documentation = "https://docs.rs/cloakrs-tracing"
 readme = "../../README.md"
 keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
 cloakrs-core = { path = "../cloakrs-core", version = "0.3.0" }
-once_cell.workspace = true
-regex.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

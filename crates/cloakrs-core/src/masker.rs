@@ -313,6 +313,8 @@ fn replace_mask(finding: &PiiEntity) -> String {
         EntityType::MacAddress => "02:00:00:00:00:01".to_string(),
         EntityType::Hostname => "host.example.test".to_string(),
         EntityType::UserPath => "/home/user/redacted".to_string(),
+        EntityType::PersonName => format!("Alex Example {}", seed % 10_000),
+        EntityType::PhysicalAddress => format!("{} Example St", 100 + (seed % 900)),
         _ => finding
             .entity_type
             .redaction_tag()

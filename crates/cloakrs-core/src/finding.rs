@@ -195,6 +195,10 @@ pub enum EntityType {
     Hostname,
     /// User home-directory path.
     UserPath,
+    /// Person name detected from dictionary and context.
+    PersonName,
+    /// Physical street address.
+    PhysicalAddress,
     /// Passport number.
     PassportNumber,
     /// Driver's license number.
@@ -242,6 +246,8 @@ impl EntityType {
             Self::MacAddress => "[MAC_ADDR]".to_string(),
             Self::Hostname => "[HOSTNAME]".to_string(),
             Self::UserPath => "[USER_PATH]".to_string(),
+            Self::PersonName => "[PERSON]".to_string(),
+            Self::PhysicalAddress => "[ADDRESS]".to_string(),
             Self::PassportNumber => "[PASSPORT]".to_string(),
             Self::DriversLicense => "[DRIVERS_LICENSE]".to_string(),
             Self::Ssn => "[SSN]".to_string(),

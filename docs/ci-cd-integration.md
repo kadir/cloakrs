@@ -34,6 +34,39 @@ cargo run -p cloakrs-cli -- audit . --severity medium --output-format text
 
 Use `--quiet` when you want masked output without a human summary.
 
+## pre-commit Framework
+
+Add cloakrs as a pre-commit hook:
+
+```yaml
+repos:
+  - repo: https://github.com/kadir/cloakrs
+    rev: v0.3.0
+    hooks:
+      - id: cloakrs-scan
+        args: ["--min-confidence", "0.8", "--locale", "eu"]
+```
+
+The hook expects the `cloakrs` binary on `PATH`, for example from
+`cargo install cloakrs-cli --locked`. The repository is a Cargo workspace, so
+the hook does not ask pre-commit to build from the workspace root.
+
+Repository-level literal allow/deny lists can live in `.cloakrs.toml`:
+
+```toml
+allow_list = ["John Smith LLC"]
+deny_list = ["PRJ-12345"]
+```
+
+Structured audit logs are JSON Lines:
+
+```bash
+cloakrs audit . --audit-log cloakrs-audit.jsonl
+```
+
+Audit log entries contain finding metadata, offsets, confidence, and recognizer
+IDs; they intentionally do not include raw matched PII.
+
 ## File Scans
 
 ```bash
@@ -55,4 +88,3 @@ cloakrs audit . --output-format sarif --output cloakrs.sarif
 - `0`: scan completed and no findings met the configured threshold.
 - `1`: scan completed and one or more findings were reported.
 - `2`: command-line or runtime error.
-

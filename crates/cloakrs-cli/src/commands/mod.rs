@@ -8,12 +8,13 @@ use cloakrs_core::{EntityType, Locale, MaskStrategy, Scanner};
 use ignore::WalkBuilder;
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::fs;
+use std::fs::{self, OpenOptions};
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Command-line interface for cloakrs.
 #[derive(Debug, Parser)]
@@ -54,6 +55,12 @@ pub struct GlobalOptions {
     /// Suppress stats and write only masked output where supported.
     #[arg(long, global = true)]
     pub quiet: bool,
+    /// Path to a cloakrs TOML configuration file.
+    #[arg(long, global = true)]
+    pub config: Option<PathBuf>,
+    /// Append structured JSONL audit events to this file.
+    #[arg(long, global = true)]
+    pub audit_log: Option<PathBuf>,
 }
 
 /// CLI subcommands.
@@ -65,6 +72,8 @@ pub enum Command {
     Stream(StreamArgs),
     /// Recursively scan a directory and produce a compliance report.
     Audit(AuditArgs),
+    /// Scan paths passed by the pre-commit framework.
+    PreCommit(PreCommitArgs),
 }
 
 /// Arguments for `cloakrs scan`.
@@ -107,6 +116,19 @@ pub struct AuditArgs {
     /// Number of worker threads to use.
     #[arg(long)]
     pub parallel: Option<usize>,
+    /// Minimum severity to report.
+    #[arg(long, default_value = "low")]
+    pub severity: SeverityArg,
+    /// Write the report to this file.
+    #[arg(long)]
+    pub output: Option<PathBuf>,
+}
+
+/// Arguments for `cloakrs pre-commit`.
+#[derive(Debug, Clone, Args, PartialEq)]
+pub struct PreCommitArgs {
+    /// Files passed by pre-commit.
+    pub paths: Vec<PathBuf>,
     /// Minimum severity to report.
     #[arg(long, default_value = "low")]
     pub severity: SeverityArg,
@@ -205,6 +227,7 @@ pub fn run(cli: Cli) -> ExitCode {
         Command::Scan(args) => run_scan(&cli.global, &args),
         Command::Stream(args) => run_stream(&cli.global, &args),
         Command::Audit(args) => run_audit(&cli.global, &args),
+        Command::PreCommit(args) => run_pre_commit(&cli.global, &args),
     }
 }
 
@@ -229,6 +252,10 @@ fn run_stream(global: &GlobalOptions, _args: &StreamArgs) -> ExitCode {
     let stdout = io::stdout();
     match stream_reader(global, stdin.lock(), stdout.lock()) {
         Ok(summary) => {
+            if let Err(error) = write_audit_events(global, &summary.audit_events) {
+                eprintln!("cloakrs stream: {error}");
+                return ExitCode::from(2);
+            }
             if !global.quiet {
                 eprintln!("{}", render_stream_summary(&summary, global.output_format));
             }
@@ -249,6 +276,12 @@ fn run_audit(global: &GlobalOptions, args: &AuditArgs) -> ExitCode {
     match audit_directory(global, args) {
         Ok(report) => {
             let found_pii = report.total_findings > 0;
+            if let Err(error) =
+                write_audit_events(global, &audit_events_from_audit_report(&report, "audit"))
+            {
+                eprintln!("cloakrs audit: {error}");
+                return ExitCode::from(2);
+            }
             match render_audit_report(&report, global.output_format) {
                 Ok(rendered) => {
                     if let Some(output) = &args.output {
@@ -282,6 +315,52 @@ fn run_audit(global: &GlobalOptions, args: &AuditArgs) -> ExitCode {
     }
 }
 
+fn run_pre_commit(global: &GlobalOptions, args: &PreCommitArgs) -> ExitCode {
+    match pre_commit_paths(global, args) {
+        Ok(report) => {
+            let found_pii = report.total_findings > 0;
+            if let Err(error) = write_audit_events(
+                global,
+                &audit_events_from_audit_report(&report, "pre-commit"),
+            ) {
+                eprintln!("cloakrs pre-commit: {error}");
+                return ExitCode::from(2);
+            }
+            match render_audit_report(&report, global.output_format) {
+                Ok(rendered) => {
+                    if let Some(output) = &args.output {
+                        if let Err(error) = fs::write(output, rendered.as_bytes()) {
+                            eprintln!(
+                                "cloakrs pre-commit: failed to write {}: {error}",
+                                output.display()
+                            );
+                            return ExitCode::from(2);
+                        }
+                    } else if !global.quiet || found_pii {
+                        if let Err(error) = write_stdout(&rendered) {
+                            eprintln!("cloakrs pre-commit: {error}");
+                            return ExitCode::from(2);
+                        }
+                    }
+                    if found_pii {
+                        ExitCode::from(1)
+                    } else {
+                        ExitCode::SUCCESS
+                    }
+                }
+                Err(error) => {
+                    eprintln!("cloakrs pre-commit: {error}");
+                    ExitCode::from(2)
+                }
+            }
+        }
+        Err(error) => {
+            eprintln!("cloakrs pre-commit: {error}");
+            ExitCode::from(2)
+        }
+    }
+}
+
 fn parse_confidence(value: &str) -> Result<f64, String> {
     let parsed = value
         .parse::<f64>()
@@ -307,6 +386,10 @@ fn scan_file(global: &GlobalOptions, args: &ScanArgs) -> Result<bool, String> {
         progress.finish_and_clear();
     }
     let found_pii = !report.findings.is_empty();
+    write_audit_events(
+        global,
+        &audit_events_from_adapter_report(&args.path, &report, "scan"),
+    )?;
 
     if let Some(output) = &args.output {
         fs::write(output, report.masked_output.as_bytes())
@@ -353,6 +436,27 @@ fn audit_directory(global: &GlobalOptions, args: &AuditArgs) -> Result<AuditRepo
 
     Ok(AuditReport::from_outcomes(
         args.path.display().to_string(),
+        args.severity,
+        outcomes,
+    ))
+}
+
+fn pre_commit_paths(global: &GlobalOptions, args: &PreCommitArgs) -> Result<AuditReport, String> {
+    if args.paths.is_empty() {
+        return Ok(AuditReport::from_outcomes(
+            "pre-commit".to_string(),
+            args.severity,
+            Vec::new(),
+        ));
+    }
+
+    let outcomes = args
+        .paths
+        .iter()
+        .map(|path| scan_audit_path(path, global, args.severity, None))
+        .collect();
+    Ok(AuditReport::from_outcomes(
+        "pre-commit".to_string(),
         args.severity,
         outcomes,
     ))
@@ -457,14 +561,76 @@ fn read_text_file(path: &Path) -> Result<String, String> {
 }
 
 fn build_scanner(global: &GlobalOptions) -> Result<Scanner, String> {
+    let config = load_config(global.config.as_deref())?;
     let mut builder = cloakrs_locales::default_registry()
         .into_scanner_builder()
         .locale(selected_locale(&global.locale))
-        .strategy(mask_strategy(global.strategy)?);
+        .strategy(mask_strategy(global.strategy)?)
+        .allow_list(config.allow_list())
+        .deny_list(config.deny_list());
     builder = builder
         .min_confidence(global.min_confidence)
         .map_err(|error| error.to_string())?;
     builder.build().map_err(|error| error.to_string())
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct CloakConfig {
+    #[serde(default)]
+    allow_list: Vec<String>,
+    #[serde(default)]
+    deny_list: Vec<String>,
+    #[serde(default)]
+    scanner: ScannerConfig,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct ScannerConfig {
+    #[serde(default)]
+    allow_list: Vec<String>,
+    #[serde(default)]
+    deny_list: Vec<String>,
+}
+
+impl CloakConfig {
+    fn allow_list(&self) -> Vec<String> {
+        self.allow_list
+            .iter()
+            .chain(self.scanner.allow_list.iter())
+            .cloned()
+            .collect()
+    }
+
+    fn deny_list(&self) -> Vec<String> {
+        self.deny_list
+            .iter()
+            .chain(self.scanner.deny_list.iter())
+            .cloned()
+            .collect()
+    }
+}
+
+fn load_config(explicit: Option<&Path>) -> Result<CloakConfig, String> {
+    let Some(path) = explicit.map(PathBuf::from).or_else(find_default_config) else {
+        return Ok(CloakConfig::default());
+    };
+    let contents = fs::read_to_string(&path)
+        .map_err(|error| format!("failed to read config {}: {error}", path.display()))?;
+    toml::from_str(&contents)
+        .map_err(|error| format!("failed to parse config {}: {error}", path.display()))
+}
+
+fn find_default_config() -> Option<PathBuf> {
+    let mut dir = std::env::current_dir().ok()?;
+    loop {
+        let candidate = dir.join(".cloakrs.toml");
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+        if !dir.pop() {
+            return None;
+        }
+    }
 }
 
 fn scan_input(
@@ -659,12 +825,14 @@ impl<'a> ScanReportJson<'a> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 struct StreamSummary {
     lines_scanned: usize,
     lines_with_findings: usize,
     total_findings: usize,
     findings_by_type: BTreeMap<String, usize>,
+    #[serde(skip)]
+    audit_events: Vec<AuditLogEvent>,
 }
 
 impl StreamSummary {
@@ -676,12 +844,19 @@ impl StreamSummary {
             .count();
         let mut findings_by_type = BTreeMap::new();
         let mut total_findings = 0;
+        let mut audit_events = Vec::new();
         for line in lines {
             total_findings += line.findings.len();
             for finding in line.findings {
                 *findings_by_type
                     .entry(format!("{:?}", finding.entity_type))
                     .or_insert(0) += 1;
+                audit_events.push(audit_event(
+                    "stream",
+                    None,
+                    format!("line:{}", line.line_number),
+                    &finding,
+                ));
             }
         }
 
@@ -690,8 +865,103 @@ impl StreamSummary {
             lines_with_findings,
             total_findings,
             findings_by_type,
+            audit_events,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+struct AuditLogEvent {
+    timestamp_unix_ms: u128,
+    command: String,
+    source: Option<String>,
+    location: String,
+    entity_type: String,
+    action: String,
+    confidence: f64,
+    recognizer_id: String,
+    span_start: usize,
+    span_end: usize,
+    text_length: usize,
+}
+
+fn audit_events_from_adapter_report(
+    path: &Path,
+    report: &AdapterReport,
+    command: &str,
+) -> Vec<AuditLogEvent> {
+    report
+        .findings
+        .iter()
+        .flat_map(|location| {
+            location.findings.iter().map(|finding| {
+                audit_event(
+                    command,
+                    Some(path.display().to_string()),
+                    location.location.clone(),
+                    finding,
+                )
+            })
+        })
+        .collect()
+}
+
+fn audit_events_from_audit_report(report: &AuditReport, command: &str) -> Vec<AuditLogEvent> {
+    report
+        .files
+        .iter()
+        .flat_map(|file| {
+            file.findings.iter().flat_map(move |location| {
+                location.findings.iter().map(move |finding| {
+                    audit_event(
+                        command,
+                        Some(file.path.clone()),
+                        location.location.clone(),
+                        finding,
+                    )
+                })
+            })
+        })
+        .collect()
+}
+
+fn audit_event(
+    command: &str,
+    source: Option<String>,
+    location: String,
+    finding: &cloakrs_core::PiiEntity,
+) -> AuditLogEvent {
+    AuditLogEvent {
+        timestamp_unix_ms: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |duration| duration.as_millis()),
+        command: command.to_string(),
+        source,
+        location,
+        entity_type: format!("{:?}", finding.entity_type),
+        action: "masked".to_string(),
+        confidence: finding.confidence.value(),
+        recognizer_id: finding.recognizer_id.clone(),
+        span_start: finding.span.start,
+        span_end: finding.span.end,
+        text_length: finding.text.len(),
+    }
+}
+
+fn write_audit_events(global: &GlobalOptions, events: &[AuditLogEvent]) -> Result<(), String> {
+    let Some(path) = &global.audit_log else {
+        return Ok(());
+    };
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .map_err(|error| format!("failed to open audit log {}: {error}", path.display()))?;
+    for event in events {
+        serde_json::to_writer(&mut file, event).map_err(|error| error.to_string())?;
+        file.write_all(b"\n").map_err(|error| error.to_string())?;
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone)]
@@ -1152,6 +1422,26 @@ mod tests {
     }
 
     #[test]
+    fn test_cli_pre_commit_accepts_paths() {
+        let cli = Cli::parse_from([
+            "cloakrs",
+            "--config",
+            ".cloakrs.toml",
+            "pre-commit",
+            "src/lib.rs",
+            "README.md",
+        ]);
+        assert_eq!(cli.global.config, Some(PathBuf::from(".cloakrs.toml")));
+        let Command::PreCommit(args) = cli.command else {
+            panic!("expected pre-commit command");
+        };
+        assert_eq!(
+            args.paths,
+            [PathBuf::from("src/lib.rs"), PathBuf::from("README.md")]
+        );
+    }
+
+    #[test]
     fn test_cli_rejects_invalid_min_confidence() {
         let error = Cli::try_parse_from(["cloakrs", "--min-confidence", "2", "stream"])
             .expect_err("confidence above one should fail");
@@ -1194,6 +1484,8 @@ mod tests {
             min_confidence: 0.5,
             output_format: OutputFormat::Text,
             quiet: true,
+            config: None,
+            audit_log: None,
         };
         let input = "email jane@example.com\nplain\n";
         let mut output = Vec::new();
@@ -1204,6 +1496,7 @@ mod tests {
         assert_eq!(summary.lines_scanned, 2);
         assert_eq!(summary.lines_with_findings, 1);
         assert_eq!(summary.total_findings, 1);
+        assert_eq!(summary.audit_events.len(), 1);
     }
 
     #[test]
@@ -1213,6 +1506,7 @@ mod tests {
             lines_with_findings: 1,
             total_findings: 1,
             findings_by_type: BTreeMap::from([("Email".to_string(), 1)]),
+            audit_events: Vec::new(),
         };
         let rendered = render_stream_summary(&summary, OutputFormat::Json);
         assert!(rendered.contains("\"total_findings\": 1"));
@@ -1231,6 +1525,8 @@ mod tests {
             min_confidence: 0.5,
             output_format: OutputFormat::Text,
             quiet: true,
+            config: None,
+            audit_log: None,
         };
         let args = AuditArgs {
             path: root.clone(),
@@ -1262,6 +1558,8 @@ mod tests {
             min_confidence: 0.5,
             output_format: OutputFormat::Text,
             quiet: true,
+            config: None,
+            audit_log: None,
         };
         let args = AuditArgs {
             path: root.clone(),
@@ -1276,6 +1574,102 @@ mod tests {
         assert_eq!(report.files_scanned, 1);
         assert_eq!(report.total_findings, 0);
         assert!(report.files.is_empty());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn test_pre_commit_paths_scans_given_files() {
+        let root = unique_temp_dir("pre_commit_scans_files");
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("sample.txt");
+        fs::write(&path, "contact jane@example.com\n").unwrap();
+
+        let global = GlobalOptions {
+            locale: vec![LocaleArg::Us],
+            strategy: StrategyArg::Redact,
+            min_confidence: 0.5,
+            output_format: OutputFormat::Text,
+            quiet: true,
+            config: None,
+            audit_log: None,
+        };
+        let args = PreCommitArgs {
+            paths: vec![path],
+            severity: SeverityArg::Low,
+            output: None,
+        };
+
+        let report = pre_commit_paths(&global, &args).unwrap();
+        assert_eq!(report.files_scanned, 1);
+        assert_eq!(report.total_findings, 1);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn test_config_allow_and_deny_lists_are_loaded() {
+        let root = unique_temp_dir("config_lists");
+        fs::create_dir_all(&root).unwrap();
+        let config = root.join(".cloakrs.toml");
+        fs::write(
+            &config,
+            r#"
+allow_list = ["jane@example.com"]
+
+[scanner]
+deny_list = ["PRJ-12345"]
+"#,
+        )
+        .unwrap();
+
+        let global = GlobalOptions {
+            locale: vec![LocaleArg::Us],
+            strategy: StrategyArg::Redact,
+            min_confidence: 0.5,
+            output_format: OutputFormat::Text,
+            quiet: true,
+            config: Some(config),
+            audit_log: None,
+        };
+        let scanner = build_scanner(&global).unwrap();
+        let result = scanner.scan("jane@example.com PRJ-12345").unwrap();
+        assert_eq!(result.findings.len(), 1);
+        assert_eq!(
+            result.masked_text.as_deref(),
+            Some("jane@example.com [DENYLIST]")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn test_write_audit_events_outputs_jsonl_without_raw_pii() {
+        let root = unique_temp_dir("audit_jsonl");
+        fs::create_dir_all(&root).unwrap();
+        let audit_log = root.join("audit.jsonl");
+        let global = GlobalOptions {
+            locale: vec![LocaleArg::Us],
+            strategy: StrategyArg::Redact,
+            min_confidence: 0.5,
+            output_format: OutputFormat::Text,
+            quiet: true,
+            config: None,
+            audit_log: Some(audit_log.clone()),
+        };
+        let mut output = Vec::new();
+        let summary = stream_reader(
+            &global,
+            io::Cursor::new("contact jane@example.com\n"),
+            &mut output,
+        )
+        .unwrap();
+
+        write_audit_events(&global, &summary.audit_events).unwrap();
+        let contents = fs::read_to_string(&audit_log).unwrap();
+        assert!(contents.contains("\"entity_type\":\"Email\""));
+        assert!(contents.contains("\"command\":\"stream\""));
+        assert!(!contents.contains("jane@example.com"));
 
         fs::remove_dir_all(root).unwrap();
     }

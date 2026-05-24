@@ -23,6 +23,7 @@ cargo publish -p cloakrs-core --dry-run
 cargo publish -p cloakrs-patterns --dry-run
 cargo publish -p cloakrs-locales --dry-run
 cargo publish -p cloakrs-adapters --dry-run
+cargo publish -p cloakrs-tracing --dry-run
 cargo publish -p cloakrs-cli --dry-run
 ```
 
@@ -34,8 +35,8 @@ above.
 ## Tag Release
 
 ```bash
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.3.0
+git push origin v0.3.0
 ```
 
 The release workflow builds binaries and publishes SHA256 checksums.
