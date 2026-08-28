@@ -6,7 +6,7 @@ use crate::{
     RecognizerRegistry, Result,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
 /// Builder for configuring a [`Scanner`].
@@ -26,6 +26,7 @@ pub struct ScannerBuilder {
     min_confidence: Confidence,
     allow_list: Vec<String>,
     deny_list: Vec<String>,
+    excluded_entities: HashSet<EntityType>,
 }
 
 impl Default for ScannerBuilder {
@@ -37,6 +38,7 @@ impl Default for ScannerBuilder {
             min_confidence: Confidence::ZERO,
             allow_list: Vec::new(),
             deny_list: Vec::new(),
+            excluded_entities: HashSet::new(),
         }
     }
 }
@@ -133,6 +135,16 @@ impl ScannerBuilder {
         self
     }
 
+    /// Excludes findings for selected entity types.
+    #[must_use]
+    pub fn exclude_entities<I>(mut self, entity_types: I) -> Self
+    where
+        I: IntoIterator<Item = EntityType>,
+    {
+        self.excluded_entities.extend(entity_types);
+        self
+    }
+
     /// Builds a scanner.
     pub fn build(self) -> Result<Scanner> {
         if self.registry.is_empty() {
@@ -146,6 +158,7 @@ impl ScannerBuilder {
             min_confidence: self.min_confidence,
             allow_list: self.allow_list,
             deny_list: self.deny_list,
+            excluded_entities: self.excluded_entities,
         })
     }
 }
@@ -158,6 +171,7 @@ pub struct Scanner {
     min_confidence: Confidence,
     allow_list: Vec<String>,
     deny_list: Vec<String>,
+    excluded_entities: HashSet<EntityType>,
 }
 
 impl Scanner {
@@ -171,6 +185,7 @@ impl Scanner {
     pub fn scan(&self, text: &str) -> Result<ScanResult> {
         let started = Instant::now();
         let mut findings = self.registry.scan_locale(text, &self.locale);
+        findings.retain(|finding| !self.excluded_entities.contains(&finding.entity_type));
         findings.extend(deny_list_findings(text, &self.deny_list));
         let allow_spans = literal_spans(text, &self.allow_list);
         findings.retain(|finding| !allow_spans.iter().any(|span| span.overlaps(finding.span)));
@@ -410,6 +425,21 @@ mod tests {
         let scanner = Scanner::builder()
             .recognizer(EmailRecognizer)
             .allow_list(["user@example.com"])
+            .build()
+            .unwrap();
+        let result = scanner.scan("Contact user@example.com").unwrap();
+        assert!(result.findings.is_empty());
+        assert_eq!(
+            result.masked_text.as_deref(),
+            Some("Contact user@example.com")
+        );
+    }
+
+    #[test]
+    fn test_scanner_excludes_selected_entity_types() {
+        let scanner = Scanner::builder()
+            .recognizer(EmailRecognizer)
+            .exclude_entities([EntityType::Email])
             .build()
             .unwrap();
         let result = scanner.scan("Contact user@example.com").unwrap();

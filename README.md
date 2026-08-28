@@ -51,7 +51,18 @@ cloakrs pre-commit src/lib.rs README.md --min-confidence 0.8
 
 # Mask a CSV file, scanning selected columns only.
 cloakrs scan users.csv --format csv --columns email,phone --output users.masked.csv
+
+# Keep URLs, hostnames, and user paths while masking other entities.
+cloakrs --exclude-entities url,hostname,user-path stream
 ```
+
+The same exclusions can be configured in `.cloakrs.toml`:
+
+```toml
+exclude_entities = ["url", "hostname", "user-path"]
+```
+
+Exclusions apply to all commands and unknown names are rejected. Excluding `url` keeps URL structure visible while nested URL-query recognizers can still mask supported PII such as email addresses and US SSNs.
 
 ## LLM Prompt Sanitization
 

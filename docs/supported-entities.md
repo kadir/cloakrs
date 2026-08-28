@@ -34,6 +34,19 @@ The `Locale` column shows where the recognizer is active. `Universal` recognizer
 | `InseeNir` | FR, EU | `fr_insee_nir_mod97_v1` | French NIR / social security numbers in compact, spaced, or hyphenated form | 13-character NIR plus 2-digit complement-to-97 key, including Corsica `2A` / `2B` handling | `0.65` to `1.00` | `1 84 12 76 451 089 46` |
 | `Custom(String)` | User-defined | User-defined | Provided by third-party recognizers implementing `Recognizer` | Provided by the custom recognizer | User-defined | `customer_id: CUS-12345` |
 
+## Entity Selection
+
+Use these canonical names with `--exclude-entities` or `exclude_entities` in `.cloakrs.toml`:
+
+```text
+email, phone-number, credit-card, iban, ip-address, url, date-of-birth,
+api-key, jwt, aws-access-key, crypto-address, mac-address, hostname,
+user-path, person-name, physical-address, passport-number, drivers-license,
+ssn, bsn, nino, nhs-number, aadhaar, pan, cpf, cnpj, steuer-id, insee-nir
+```
+
+Unknown names are rejected. Exclusions filter findings after universal and locale recognizers run. Consequently, excluding `url` preserves the URL itself while nested URL-query findings such as `Email` or `Ssn` remain active unless separately excluded.
+
 ## Nested URL Findings
 
 URL query scanning can emit additional findings inside a URL:
