@@ -3,3 +3,6 @@ allow_list = ["John Smith LLC"]
 
 # Literal values that should always be reported and masked.
 deny_list = ["PRJ-12345"]
+
+# Entity recognizers to disable. Unknown names are rejected.
+exclude_entities = ["url", "hostname", "user-path"]
