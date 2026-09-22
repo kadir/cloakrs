@@ -2,8 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master, main]
   pull_request:
+  workflow_call:
 
 jobs:
   test:
@@ -32,13 +33,13 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run Clippy
-        run: cargo clippy --workspace -- -D warnings
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       - name: Run tests
-        run: cargo test --workspace
+        run: cargo test --workspace --locked
 
       - name: Build documentation
-        run: cargo doc --workspace --no-deps
+        run: cargo doc --workspace --locked --no-deps
 
   benchmarks:
     name: Benchmark smoke
@@ -56,7 +57,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Compile benchmark
-        run: cargo bench -p cloakrs-cli --bench scan_benchmark --no-run
+        run: cargo bench --locked -p cloakrs-cli --bench scan_benchmark --no-run
 
       - name: Run short benchmark smoke
-        run: cargo bench -p cloakrs-cli --bench scan_benchmark -- --sample-size 10
+        run: cargo bench --locked -p cloakrs-cli --bench scan_benchmark -- --test

@@ -167,6 +167,17 @@ impl Scanner {
         ScannerBuilder::new()
     }
 
+    /// Masks supplied findings with this scanner's configured strategy.
+    ///
+    /// Format adapters can use this after adjusting findings to source-text offsets.
+    /// Returns `None` when masking is disabled and an error for invalid spans.
+    pub fn mask_findings(&self, text: &str, findings: &[PiiEntity]) -> Result<Option<String>> {
+        self.strategy
+            .as_ref()
+            .map(|strategy| apply_mask(text, findings, strategy))
+            .transpose()
+    }
+
     /// Scans text and returns findings, optional masked text, and stats.
     pub fn scan(&self, text: &str) -> Result<ScanResult> {
         let started = Instant::now();
@@ -229,8 +240,14 @@ fn deduplicate_for_reporting(findings: &[PiiEntity]) -> Vec<PiiEntity> {
     sorted.sort_by_key(|finding| (finding.span.start, std::cmp::Reverse(finding.span.end)));
 
     let mut keep: Vec<PiiEntity> = Vec::with_capacity(sorted.len());
+    let mut active_start = 0;
     for finding in sorted {
-        if keep
+        // Findings arrive in start-offset order. Finished spans can never overlap
+        // this or a later finding; avoid rescanning the entire reporting history.
+        while active_start < keep.len() && keep[active_start].span.end <= finding.span.start {
+            active_start += 1;
+        }
+        if keep[active_start..]
             .iter()
             .any(|kept| should_preserve_nested_url_query(kept, &finding))
         {
@@ -238,9 +255,10 @@ fn deduplicate_for_reporting(findings: &[PiiEntity]) -> Vec<PiiEntity> {
             continue;
         }
 
-        if let Some(overlap_index) = keep
+        if let Some(overlap_index) = keep[active_start..]
             .iter()
             .rposition(|kept| finding.span.overlaps(kept.span))
+            .map(|index| active_start + index)
         {
             if should_keep_existing_url_query(&keep[overlap_index], &finding) {
                 continue;
@@ -434,5 +452,26 @@ mod tests {
             EntityType::Custom("DenyList".to_string())
         );
         assert_eq!(result.masked_text.as_deref(), Some("ticket [DENYLIST]"));
+    }
+    #[test]
+    fn test_reporting_preserves_nested_findings_across_finished_spans() {
+        let finding = |start, end, entity_type, id: &str| PiiEntity {
+            entity_type,
+            span: Span::new(start, end),
+            text: "synthetic".into(),
+            confidence: Confidence::ONE,
+            recognizer_id: id.into(),
+        };
+        let expected = vec![
+            finding(0, 3, EntityType::Email, "email"),
+            finding(10, 100, EntityType::Url, "url"),
+            finding(20, 25, EntityType::Email, "url_query_email_v1"),
+            finding(40, 45, EntityType::Ssn, "url_query_ssn_v1"),
+            finding(101, 110, EntityType::Email, "email"),
+        ];
+        let mut input = expected.clone();
+        input.push(finding(20, 25, EntityType::Email, "email"));
+        input.reverse();
+        assert_eq!(deduplicate_for_reporting(&input), expected);
     }
 }

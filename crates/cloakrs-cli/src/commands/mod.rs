@@ -4,14 +4,14 @@ use cloakrs_adapters::{
     mask_log_reader, scan_csv_str, scan_json_str, scan_log_str, scan_sql_str, scan_text,
     AdapterFinding, AdapterKind, AdapterReport, CsvScanOptions, JsonScanOptions, LogLineScanResult,
 };
-use cloakrs_core::{EntityType, Locale, MaskStrategy, Scanner};
+use cloakrs_core::{EntityType, Locale, MaskStrategy, PromptMapping, PromptSanitizer, Scanner};
 use ignore::WalkBuilder;
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs::{self, OpenOptions};
-use std::io::{self, BufRead, Write};
+use std::io::{self, BufRead, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -74,6 +74,14 @@ pub enum Command {
     Audit(AuditArgs),
     /// Scan paths passed by the pre-commit framework.
     PreCommit(PreCommitArgs),
+    /// Replace PII in text with numbered placeholders and write a mapping file.
+    ///
+    /// The mapping file contains the original sensitive values. Treat it like a secret.
+    Sanitize(SanitizeArgs),
+    /// Restore placeholders in LLM output using a mapping file written by `sanitize`.
+    ///
+    /// The mapping file contains the original sensitive values. Treat it like a secret.
+    Restore(RestoreArgs),
 }
 
 /// Arguments for `cloakrs scan`.
@@ -135,6 +143,42 @@ pub struct PreCommitArgs {
     /// Write the report to this file.
     #[arg(long)]
     pub output: Option<PathBuf>,
+}
+
+/// Arguments for `cloakrs sanitize`.
+#[derive(Debug, Clone, Args, PartialEq)]
+pub struct SanitizeArgs {
+    /// File to sanitize; omit to read from stdin.
+    pub input: Option<PathBuf>,
+    /// Path to write the placeholder mapping to. The mapping file contains the original
+    /// sensitive values -- treat it like a secret.
+    #[arg(long)]
+    pub mapping: PathBuf,
+    /// Write sanitized output to this file instead of stdout.
+    #[arg(long)]
+    pub output: Option<PathBuf>,
+    /// Placeholder bracket style to use in the sanitized output.
+    #[arg(long, default_value = "brackets")]
+    pub placeholder_style: PlaceholderStyleArg,
+    /// Overwrite the mapping file if it already exists.
+    #[arg(long)]
+    pub force: bool,
+}
+
+/// Arguments for `cloakrs restore`.
+#[derive(Debug, Clone, Args, PartialEq)]
+pub struct RestoreArgs {
+    /// File to restore; omit to read from stdin.
+    pub input: Option<PathBuf>,
+    /// Path to a mapping file previously written by `sanitize`.
+    #[arg(long)]
+    pub mapping: PathBuf,
+    /// Write restored output to this file instead of stdout.
+    #[arg(long)]
+    pub output: Option<PathBuf>,
+    /// Require exact placeholder matches; disable tolerant case/whitespace matching.
+    #[arg(long)]
+    pub strict: bool,
 }
 
 /// Input file formats supported by `scan`.
@@ -208,6 +252,25 @@ pub enum LocaleArg {
     Eu,
 }
 
+/// Placeholder bracket styles accepted by `sanitize`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[value(rename_all = "kebab-case")]
+pub enum PlaceholderStyleArg {
+    /// `[TYPE_N]` (the default).
+    Brackets,
+    /// `{TYPE_N}`.
+    Braces,
+}
+
+impl From<PlaceholderStyleArg> for cloakrs_core::PlaceholderStyle {
+    fn from(value: PlaceholderStyleArg) -> Self {
+        match value {
+            PlaceholderStyleArg::Brackets => Self::Brackets,
+            PlaceholderStyleArg::Braces => Self::Braces,
+        }
+    }
+}
+
 /// Audit severity levels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ValueEnum)]
 #[value(rename_all = "kebab-case")]
@@ -228,6 +291,8 @@ pub fn run(cli: Cli) -> ExitCode {
         Command::Stream(args) => run_stream(&cli.global, &args),
         Command::Audit(args) => run_audit(&cli.global, &args),
         Command::PreCommit(args) => run_pre_commit(&cli.global, &args),
+        Command::Sanitize(args) => run_sanitize(&cli.global, &args),
+        Command::Restore(args) => run_restore(&cli.global, &args),
     }
 }
 
@@ -359,6 +424,178 @@ fn run_pre_commit(global: &GlobalOptions, args: &PreCommitArgs) -> ExitCode {
             ExitCode::from(2)
         }
     }
+}
+
+fn run_sanitize(global: &GlobalOptions, args: &SanitizeArgs) -> ExitCode {
+    match sanitize_command(global, args) {
+        Ok(findings) => {
+            if !global.quiet {
+                eprintln!(
+                    "cloakrs sanitize: {findings} finding(s), mapping written to {}",
+                    args.mapping.display()
+                );
+            }
+            // Sanitizing is the success path, not a gate: exit 0 even when findings exist.
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("cloakrs sanitize: {error}");
+            ExitCode::from(2)
+        }
+    }
+}
+
+fn run_restore(global: &GlobalOptions, args: &RestoreArgs) -> ExitCode {
+    match restore_command(args) {
+        Ok(()) => {
+            if !global.quiet {
+                eprintln!("cloakrs restore: restored from {}", args.mapping.display());
+            }
+            ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("cloakrs restore: {error}");
+            ExitCode::from(2)
+        }
+    }
+}
+
+fn sanitize_command(global: &GlobalOptions, args: &SanitizeArgs) -> Result<usize, String> {
+    ensure_distinct_paths(&args.mapping, args.input.as_deref())?;
+    ensure_distinct_paths(&args.mapping, args.output.as_deref())?;
+    if fs::symlink_metadata(&args.mapping).is_ok() && !args.force {
+        return Err(format!(
+            "{} already exists; pass --force to overwrite it",
+            args.mapping.display()
+        ));
+    }
+
+    let input = read_input(&args.input)?;
+    let scanner = build_scanner(global)?;
+    let sanitizer = PromptSanitizer::new(scanner);
+    let style: cloakrs_core::PlaceholderStyle = args.placeholder_style.into();
+    let (clean, mapping) = sanitizer
+        .sanitize_with_style(&input, style)
+        .map_err(|error| error.to_string())?;
+    let findings = mapping.entries().count();
+
+    write_mapping_file(&args.mapping, &mapping, args.force)?;
+    write_command_output(&args.output, &clean)?;
+
+    Ok(findings)
+}
+
+fn restore_command(args: &RestoreArgs) -> Result<(), String> {
+    ensure_distinct_paths(&args.mapping, args.output.as_deref())?;
+    let mapping_json = fs::read_to_string(&args.mapping)
+        .map_err(|error| format!("failed to read mapping {}: {error}", args.mapping.display()))?;
+    let mapping: PromptMapping = serde_json::from_str(&mapping_json).map_err(|error| {
+        format!(
+            "failed to parse mapping {}: {error}",
+            args.mapping.display()
+        )
+    })?;
+
+    let input = read_input(&args.input)?;
+    let restored = if args.strict {
+        mapping.restore_strict(&input)
+    } else {
+        mapping.restore(&input)
+    };
+    match &args.output {
+        Some(path) => write_private_file(path, restored.as_bytes(), true),
+        None => write_exact_stdout(&restored),
+    }
+}
+
+fn read_input(path: &Option<PathBuf>) -> Result<String, String> {
+    match path {
+        Some(path) => fs::read_to_string(path)
+            .map_err(|error| format!("failed to read {}: {error}", path.display())),
+        None => {
+            let mut buffer = String::new();
+            io::stdin()
+                .lock()
+                .read_to_string(&mut buffer)
+                .map_err(|error| format!("failed to read stdin: {error}"))?;
+            Ok(buffer)
+        }
+    }
+}
+
+fn write_command_output(path: &Option<PathBuf>, contents: &str) -> Result<(), String> {
+    match path {
+        Some(path) => fs::write(path, contents.as_bytes())
+            .map_err(|error| format!("failed to write {}: {error}", path.display())),
+        None => write_exact_stdout(contents),
+    }
+}
+
+fn write_exact_stdout(contents: &str) -> Result<(), String> {
+    io::stdout()
+        .lock()
+        .write_all(contents.as_bytes())
+        .map_err(|error| format!("failed to write stdout: {error}"))
+}
+
+fn ensure_distinct_paths(mapping: &Path, other: Option<&Path>) -> Result<(), String> {
+    let Some(other) = other else {
+        return Ok(());
+    };
+    fn resolved(path: &Path) -> io::Result<PathBuf> {
+        if let Ok(path) = path.canonicalize() {
+            return Ok(path);
+        }
+        let parent = path
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .unwrap_or(Path::new("."));
+        Ok(parent.canonicalize()?.join(
+            path.file_name()
+                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing file name"))?,
+        ))
+    }
+    let equal = same_file::is_same_file(mapping, other).unwrap_or(false)
+        || resolved(mapping).map_err(|e| e.to_string())?
+            == resolved(other).map_err(|e| e.to_string())?;
+    if equal {
+        return Err("mapping must be a different file from the input and output".to_string());
+    }
+    Ok(())
+}
+
+fn write_mapping_file(path: &Path, mapping: &PromptMapping, force: bool) -> Result<(), String> {
+    let json = serde_json::to_vec_pretty(mapping).map_err(|error| error.to_string())?;
+    write_private_file(path, &json, force)
+}
+
+fn write_private_file(path: &Path, contents: &[u8], force: bool) -> Result<(), String> {
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    // NamedTempFile is created with mode 0600 on Unix, before any sensitive bytes are written.
+    // Persisting replaces the directory entry, never following an existing symlink.
+    let mut file = tempfile::NamedTempFile::new_in(parent)
+        .map_err(|error| format!("failed to create private file: {error}"))?;
+    file.write_all(contents)
+        .and_then(|()| file.as_file().sync_all())
+        .map_err(|error| format!("failed to write {}: {error}", path.display()))?;
+    let result = if force {
+        file.persist(path)
+    } else {
+        file.persist_noclobber(path)
+    };
+    result.map(|_| ()).map_err(|error| {
+        if error.error.kind() == io::ErrorKind::AlreadyExists {
+            format!(
+                "{} already exists; pass --force to overwrite it",
+                path.display()
+            )
+        } else {
+            format!("failed to save {}: {error}", path.display())
+        }
+    })
 }
 
 fn parse_confidence(value: &str) -> Result<f64, String> {
@@ -1676,5 +1913,165 @@ deny_list = ["PRJ-12345"]
 
     fn unique_temp_dir(name: &str) -> PathBuf {
         std::env::temp_dir().join(format!("cloakrs_{name}_{}", std::process::id()))
+    }
+
+    fn sanitize_restore_global() -> GlobalOptions {
+        GlobalOptions {
+            locale: vec![LocaleArg::Us],
+            strategy: StrategyArg::Redact,
+            min_confidence: 0.5,
+            output_format: OutputFormat::Text,
+            quiet: true,
+            config: None,
+            audit_log: None,
+        }
+    }
+
+    #[test]
+    fn test_cli_sanitize_and_restore_parse() {
+        let cli = Cli::parse_from([
+            "cloakrs",
+            "sanitize",
+            "input.txt",
+            "--mapping",
+            "map.json",
+            "--placeholder-style",
+            "braces",
+        ]);
+        let Command::Sanitize(args) = cli.command else {
+            panic!("expected sanitize command");
+        };
+        assert_eq!(args.input, Some(PathBuf::from("input.txt")));
+        assert_eq!(args.mapping, PathBuf::from("map.json"));
+        assert_eq!(args.placeholder_style, PlaceholderStyleArg::Braces);
+        assert!(!args.force);
+
+        let cli = Cli::parse_from([
+            "cloakrs",
+            "restore",
+            "resp.txt",
+            "--mapping",
+            "map.json",
+            "--strict",
+        ]);
+        let Command::Restore(args) = cli.command else {
+            panic!("expected restore command");
+        };
+        assert!(args.strict);
+    }
+
+    #[test]
+    fn test_sanitize_then_restore_round_trips_through_files() {
+        let root = unique_temp_dir("sanitize_restore_e2e");
+        fs::create_dir_all(&root).unwrap();
+        let input_path = root.join("input.txt");
+        let mapping_path = root.join("mapping.json");
+        let sanitized_path = root.join("clean.txt");
+        let original = "Contact jane@example.com about the invoice.";
+        fs::write(&input_path, original).unwrap();
+
+        let global = sanitize_restore_global();
+        let sanitize_args = SanitizeArgs {
+            input: Some(input_path.clone()),
+            mapping: mapping_path.clone(),
+            output: Some(sanitized_path.clone()),
+            placeholder_style: PlaceholderStyleArg::Brackets,
+            force: false,
+        };
+        let findings = sanitize_command(&global, &sanitize_args).unwrap();
+        assert_eq!(findings, 1);
+
+        let sanitized = fs::read_to_string(&sanitized_path).unwrap();
+        assert!(sanitized.contains("[EMAIL_1]"));
+        assert!(!sanitized.contains("jane@example.com"));
+
+        // Simulate an LLM response that echoes the placeholder back with different casing.
+        let response_path = root.join("response.txt");
+        fs::write(&response_path, "Reply sent regarding [ email_1 ] already.").unwrap();
+        let restored_path = root.join("restored.txt");
+        let restore_args = RestoreArgs {
+            input: Some(response_path),
+            mapping: mapping_path,
+            output: Some(restored_path.clone()),
+            strict: false,
+        };
+        restore_command(&restore_args).unwrap();
+        let restored = fs::read_to_string(&restored_path).unwrap();
+        assert_eq!(restored, "Reply sent regarding jane@example.com already.");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn test_sanitize_overwrite_without_force_fails() {
+        let root = unique_temp_dir("sanitize_overwrite");
+        fs::create_dir_all(&root).unwrap();
+        let input_path = root.join("input.txt");
+        fs::write(&input_path, "hello jane@example.com").unwrap();
+        let mapping_path = root.join("mapping.json");
+        fs::write(&mapping_path, "{}").unwrap();
+
+        let global = sanitize_restore_global();
+        let args = SanitizeArgs {
+            input: Some(input_path),
+            mapping: mapping_path,
+            output: None,
+            placeholder_style: PlaceholderStyleArg::Brackets,
+            force: false,
+        };
+        let error = sanitize_command(&global, &args).expect_err("should refuse to overwrite");
+        assert!(error.contains("--force"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_sanitize_mapping_file_has_mode_0600() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = unique_temp_dir("sanitize_mode");
+        fs::create_dir_all(&root).unwrap();
+        let input_path = root.join("input.txt");
+        fs::write(&input_path, "hello jane@example.com").unwrap();
+        let mapping_path = root.join("mapping.json");
+
+        let global = sanitize_restore_global();
+        let args = SanitizeArgs {
+            input: Some(input_path),
+            mapping: mapping_path.clone(),
+            output: None,
+            placeholder_style: PlaceholderStyleArg::Brackets,
+            force: false,
+        };
+        sanitize_command(&global, &args).unwrap();
+
+        let mode = fs::metadata(&mapping_path).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o600);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn test_read_input_surfaces_a_clear_error_for_a_missing_file() {
+        let missing = std::env::temp_dir().join("cloakrs_definitely_missing_input.txt");
+        let error = read_input(&Some(missing)).unwrap_err();
+        assert!(error.contains("failed to read"));
+    }
+
+    #[test]
+    fn test_cli_sanitize_help_contains_secret_warning() {
+        let mut command = Cli::command();
+        let sanitize = command
+            .find_subcommand_mut("sanitize")
+            .expect("sanitize subcommand exists");
+        let help = sanitize.render_long_help().to_string();
+        assert!(help.contains("Treat it like a secret"));
+
+        let restore = command
+            .find_subcommand_mut("restore")
+            .expect("restore subcommand exists");
+        let help = restore.render_long_help().to_string();
+        assert!(help.contains("Treat it like a secret"));
     }
 }

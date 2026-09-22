@@ -4,6 +4,56 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.1] - 2026-09-22
+
+### Fixed
+- `PromptSanitizer::sanitize` now deduplicates identical `(entity_type, original_text)`
+  values within a single call, so a repeated value reuses one placeholder instead of
+  incrementing a new one each time (e.g. the same email no longer becomes `[EMAIL_1]` and
+  `[EMAIL_2]`).
+- `PromptMapping::restore` now tolerates
+  placeholders that differ from the original only by ASCII case or interior whitespace
+  (`[ email_1 ]`, `[Email_1]`), matching how LLMs actually echo placeholders back. Index
+  matching is exact, so `[EMAIL_1]` never matches inside `[EMAIL_10]`, and unknown
+  placeholders are left untouched.
+- Sanitization handles nested URL findings without overlapping replacements and avoids
+  collisions with placeholders already present in the input.
+- Strict restoration preserves exact index spelling and replacements are non-recursive.
+- Context scoring only tokenizes the requested neighboring words instead of the entire
+  document for each finding, and overlap resolution skips completed spans. These changes
+  avoid excessive work on large inputs while preserving detection results.
+- Log streaming retains URL and API-key context and scans sensitive text outside log fields.
+- Mapping files are created privately and saved atomically without following destination
+  symlinks. Existing files cannot be overwritten without `--force`; input/output aliases
+  of the mapping are rejected. Restored output files are also private on Unix.
+- Sanitize/restore stdout preserves input newline boundaries exactly.
+- Refreshed the lockfile for the supported Rust 1.75 toolchain; CI and release builds use
+  `--locked` to keep dependency selection reproducible.
+
+### Changed
+- Preserved the public `PromptMapping::entries` and `PromptMappingEntry::original`
+  fields and the existing JSON shape for compatibility with 0.3.0. Added `entries()`,
+  `get()`, and `original_value()` accessors for explicit access to sensitive values.
+- `Debug` for `PromptMapping` and `PromptMappingEntry` is now hand-written and redacts the
+  original value, showing only the placeholder, entity type, and confidence. `Serialize`/`Deserialize` (the mapping JSON file)
+  are unaffected and still contain the real values by design — treat mapping files as
+  secrets.
+
+### Added
+- `cloakrs sanitize` and `cloakrs restore` CLI subcommands, so the sanitizer is usable
+  outside of Rust. `sanitize` writes a mapping file (mode `0600` on Unix; refuses to
+  overwrite an existing mapping without `--force`) alongside the sanitized text; `restore`
+  reads it back with tolerant matching by default (`--strict` to disable). Both accept a
+  file path or stdin, and `--help` calls out that the mapping file contains real sensitive
+  values.
+- `PlaceholderStyle` (`Brackets` / `Braces`) and `PromptSanitizer::sanitize_with_style`,
+  for choosing the placeholder delimiter used when sanitizing; exposed on the CLI as
+  `cloakrs sanitize --placeholder-style`.
+- Expanded sanitizer test coverage: a 256-case property test asserting
+  `restore(sanitize(text)) == text` for randomized input, dedup/Debug-redaction/tolerant-
+  matching test matrices, and Unicode, empty-input, PII-only-input, and overlapping-finding
+  edge cases.
+
 ## [0.3.0] - 2026-05-24
 
 ### Added

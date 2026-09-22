@@ -841,7 +841,7 @@ mod tests {
         let encrypted = MaskStrategy::Encrypt { key: test_key() }
             .try_replacement(&item)
             .unwrap();
-        let tampered = encrypted.replace("A", "B");
+        let tampered = encrypted.replace('A', "B");
         assert!(decrypt_masked_value(&tampered, &test_key()).is_err());
     }
 

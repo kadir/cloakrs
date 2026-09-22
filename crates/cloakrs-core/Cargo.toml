@@ -21,3 +21,6 @@ serde_json.workspace = true
 csv.workspace = true
 sha2.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true

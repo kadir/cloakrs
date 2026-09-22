@@ -148,42 +148,41 @@ fn scan_key_value_log_line(
     line: &str,
     scanner: &Scanner,
 ) -> Result<Option<LogLineScanResult>> {
-    let mut findings = Vec::new();
-    let mut replacements = Vec::new();
-    let mut saw_key_value = false;
-
-    for (value_start, value_end) in key_value_spans(line) {
-        saw_key_value = true;
-        let value = &line[value_start..value_end];
-        let scan = scanner.scan(value)?;
-        if scan.findings.is_empty() {
-            continue;
-        }
-
-        findings.extend(scan.findings.into_iter().map(|mut finding| {
-            finding.span.start += value_start;
-            finding.span.end += value_start;
-            finding
-        }));
-        if let Some(masked_value) = scan.masked_text {
-            replacements.push((value_start, value_end, masked_value));
-        }
-    }
-
-    if !saw_key_value {
+    let spans = key_value_spans(line);
+    if spans.is_empty() {
         return Ok(None);
     }
 
-    let mut masked_line = line.to_string();
-    for (start, end, replacement) in replacements.into_iter().rev() {
-        masked_line.replace_range(start..end, &replacement);
+    // Scan the complete line so URL structure, API-key context and text outside
+    // key=value fields remain visible to recognizers.
+    let mut findings = scanner.scan(line)?.findings;
+    for (value_start, value_end) in spans {
+        let value = &line[value_start..value_end];
+        for mut finding in scanner.scan(value)?.findings {
+            finding.span.start += value_start;
+            finding.span.end += value_start;
+            // An email recognizer may include `email=` in an otherwise valid local
+            // part. Prefer the value-only finding so the log field name survives.
+            findings.retain(|existing| {
+                !(existing.entity_type == finding.entity_type
+                    && existing.span.start < value_start
+                    && existing.span.end == finding.span.end)
+            });
+            if !findings.iter().any(|existing| {
+                existing.entity_type == finding.entity_type && existing.span == finding.span
+            }) {
+                findings.push(finding);
+            }
+        }
     }
+    findings.sort_by_key(|finding| finding.span.start);
+    let masked_line = scanner.mask_findings(line, &findings)?;
 
     Ok(Some(LogLineScanResult {
         line_number,
         format: LogLineFormat::KeyValue,
         findings,
-        masked_line: Some(masked_line),
+        masked_line,
     }))
 }
 
@@ -210,6 +209,14 @@ fn key_value_spans(line: &str) -> Vec<(usize, usize)> {
             continue;
         }
 
+        // A URL query is not a log field key.
+        if !line[token_start..index]
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'))
+        {
+            index = skip_token(line, index);
+            continue;
+        }
         index += 1;
         if index >= line.len() {
             continue;
@@ -317,5 +324,35 @@ mod tests {
         let output = String::from_utf8(output).unwrap();
         assert_eq!(results.len(), 2);
         assert_eq!(output.matches("[EMAIL]").count(), 2);
+    }
+    #[test]
+    fn test_stream_preserves_context_and_scans_outside_log_fields() {
+        for input in [
+            "https://example.com?email=jane%40example.com",
+            "level=info https://example.com?email=jane%40example.com",
+            "level=info api_key=abcdefghijklmnopqrstuvwx",
+            "jane@example.com level=info",
+        ] {
+            let result = scan_log_str(input, &scanner()).unwrap();
+            assert!(!result.masked_log.contains("jane"), "{}", result.masked_log);
+            assert!(
+                !result.masked_log.contains("abcdefghijklmnopqrstuvwx"),
+                "{}",
+                result.masked_log
+            );
+            assert!(!result.lines[0].findings.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_stream_key_value_without_masking_leaves_output_unchanged() {
+        let scanner = default_registry()
+            .into_scanner_builder()
+            .without_masking()
+            .build()
+            .unwrap();
+        let result = scan_log_str("email=jane@example.com", &scanner).unwrap();
+        assert_eq!(result.masked_log, "email=jane@example.com\n");
+        assert!(!result.lines[0].findings.is_empty());
     }
 }

@@ -11,7 +11,7 @@ See [supported entities](docs/supported-entities.md) for the full detection matr
 ## Install
 
 ```bash
-cargo install cloakrs-cli
+cargo install cloakrs-cli --locked
 ```
 
 For local development:
@@ -51,6 +51,13 @@ cloakrs pre-commit src/lib.rs README.md --min-confidence 0.8
 
 # Mask a CSV file, scanning selected columns only.
 cloakrs scan users.csv --format csv --columns email,phone --output users.masked.csv
+
+# Sanitize a prompt before sending it to an LLM, keeping the restore key in mapping.json.
+# The mapping file contains the original sensitive values -- treat it like a secret.
+cloakrs sanitize prompt.txt --mapping mapping.json --output clean.txt
+
+# Restore placeholders in the model's response using that mapping (tolerant by default).
+cloakrs restore response.txt --mapping mapping.json --output final.txt
 ```
 
 ## LLM Prompt Sanitization
@@ -72,6 +79,12 @@ fn main() -> Result<()> {
     Ok(())
 }
 ```
+
+Mapping JSON contains the original sensitive values. Keep it local and protect it like a
+secret. Mapping and restored-output files are created with mode `0600` on Unix; on
+Windows, access follows the destination directory's ACLs. Keep that directory private.
+Detection is pattern-based and may miss unsupported or encoded values; sanitization is
+not a guarantee that arbitrary text is free of sensitive information.
 
 ## Architecture
 

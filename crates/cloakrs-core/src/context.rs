@@ -94,14 +94,9 @@ pub fn surrounding_context(text: &str, span: Span, config: &ContextConfig) -> Co
     let before_text = text.get(..start).unwrap_or_default();
     let after_text = text.get(end..).unwrap_or_default();
 
-    let mut before = words(before_text);
-    let before_start = before.len().saturating_sub(config.words_before);
-    before = before.split_off(before_start);
-
-    let after = words(after_text)
-        .into_iter()
-        .take(config.words_after)
-        .collect();
+    let mut before: Vec<_> = words(before_text).rev().take(config.words_before).collect();
+    before.reverse();
+    let after = words(after_text).take(config.words_after).collect();
 
     ContextWindow { before, after }
 }
@@ -156,11 +151,10 @@ fn is_code_like_context(window: &ContextWindow) -> bool {
         .any(|word| CODE_TERMS.contains(&word.as_str()))
 }
 
-fn words(text: &str) -> Vec<String> {
+fn words(text: &str) -> impl DoubleEndedIterator<Item = String> + '_ {
     text.split(|c: char| !(c.is_alphanumeric() || matches!(c, '_' | '-' | ':' | '=')))
         .filter(|word| !word.is_empty())
         .map(|word| word.to_ascii_lowercase())
-        .collect()
 }
 
 #[cfg(test)]
@@ -223,5 +217,28 @@ mod tests {
             &ContextConfig::default(),
         );
         assert_eq!(score.adjustment, 0.0);
+    }
+    #[test]
+    fn test_bounded_context_matches_eager_reference() {
+        let text = "αβ foo_bar x-y: let = mail Jane@example.com 😀 tail more END";
+        for start in text
+            .char_indices()
+            .map(|(i, _)| i)
+            .chain(std::iter::once(text.len()))
+        {
+            for width in [0, 1, 3, 100] {
+                let config = ContextConfig {
+                    words_before: width,
+                    words_after: width,
+                    ..ContextConfig::default()
+                };
+                let window = surrounding_context(text, Span::new(start, start), &config);
+                let all_before: Vec<_> = words(&text[..start]).collect();
+                let expected_before = all_before[all_before.len().saturating_sub(width)..].to_vec();
+                let expected_after: Vec<_> = words(&text[start..]).take(width).collect();
+                assert_eq!(window.before, expected_before);
+                assert_eq!(window.after, expected_after);
+            }
+        }
     }
 }

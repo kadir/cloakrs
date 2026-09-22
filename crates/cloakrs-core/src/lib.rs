@@ -42,6 +42,6 @@ pub use context::{context_score, surrounding_context, ContextConfig, ContextScor
 pub use error::{CloakError, Result};
 pub use finding::{Confidence, EntityType, Locale, PiiEntity, Span};
 pub use masker::{apply_mask, decrypt_masked_value, MaskStrategy};
-pub use prompt::{PromptMapping, PromptMappingEntry, PromptSanitizer};
+pub use prompt::{PlaceholderStyle, PromptMapping, PromptMappingEntry, PromptSanitizer};
 pub use recognizer::{Recognizer, RecognizerRegistry};
 pub use scanner::{ScanResult, ScanStats, Scanner, ScannerBuilder};

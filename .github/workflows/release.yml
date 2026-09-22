@@ -9,7 +9,11 @@ permissions:
   contents: write
 
 jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
+
   build:
+    needs: verify
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -53,11 +57,11 @@ jobs:
 
       - name: Build (native)
         if: matrix.target == 'x86_64-unknown-linux-gnu' || matrix.os == 'macos-latest' || matrix.os == 'windows-latest'
-        run: cargo build --release -p cloakrs-cli --target ${{ matrix.target }}
+        run: cargo build --locked --release -p cloakrs-cli --target ${{ matrix.target }}
 
       - name: Build (cross)
         if: matrix.os == 'ubuntu-latest' && matrix.target != 'x86_64-unknown-linux-gnu'
-        run: cross build --release -p cloakrs-cli --target ${{ matrix.target }}
+        run: cross build --locked --release -p cloakrs-cli --target ${{ matrix.target }}
 
       - name: Package (tar.gz)
         if: matrix.archive == 'tar.gz'
