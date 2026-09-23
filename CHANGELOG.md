@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.2] - 2026-09-23
+
+### Security
+- Encryption now uses a fresh OS-random nonce per value instead of deriving it
+  from plaintext and finding metadata. `ENC[...]` output is nondeterministic;
+  existing ciphertext remains decryptable. Stored ciphertext is not automatically
+  upgraded; see [the security notes](SECURITY.md) for migration and key handling.
+- `MaskStrategy` debug formatting redacts encryption keys and hash salts.
+  Serialization still includes these values by design.
+
+### Fixed
+- The Linux/macOS installer now uses the actual published asset names and
+  `SHA256SUMS.txt`, pins latest downloads to one release tag, validates the binary
+  version, and stages installation before replacing an existing binary.
+- Corrected invalid UK NINO, Indian Aadhaar/PAN, and German tax-ID examples in
+  the supported-entities guide using values exercised by the labeled evaluation.
+
+### Added
+- Offline installer tests, installation instructions including Windows checksum
+  verification, and documented security boundaries and reporting instructions.
+- A 58-case labeled synthetic detection corpus with exact-span precision/recall,
+  per-entity and per-category breakdowns, known misses, latency measurements, and
+  peak process memory on Linux/macOS. This is a regression baseline, not a
+  representative real-world accuracy claim.
+- Installer and detection-baseline CI gates; dependency audits now also run
+  during pull-request and release verification.
+- Published release checks verify archive checksums, binary version, detection,
+  and masking on all six targets, plus pinned/latest shell installation on
+  Linux and macOS. GitHub release notes are taken from this changelog.
+
 ## [0.3.1] - 2026-09-22
 
 ### Fixed

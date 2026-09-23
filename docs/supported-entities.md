@@ -24,13 +24,13 @@ The `Locale` column shows where the recognizer is active. `Universal` recognizer
 | `PersonName` | Universal | `person_name_dictionary_v1` | Dictionary-backed first/last name pairs with optional title or middle initial | Common-name dictionary checks, phrase suppression, capitalization, and context-sensitive confidence | `0.42` to `1.00` | `John Smith` |
 | `PhysicalAddress` | Universal | `physical_address_us_v1` | US-style street number, street name, street type, optional unit, city/state, and ZIP | Street-type requirement, numeric street number, boundary trimming, and context-sensitive confidence | `0.70` to `1.00` | `123 Main St, Springfield, IL 62704` |
 | `Bsn` | NL, EU | `nl_bsn_mod11_v1` | Dutch 9-digit BSN candidates | Dutch 11-check checksum with low no-context confidence | `0.35` to `1.00` | `123456782` |
-| `Nino` | UK | `uk_nino_regex_v1` | UK National Insurance number patterns with compact or spaced formatting | Prefix-letter rules, forbidden prefix combinations, six-digit body, and A-D suffix | `0.75` to `1.00` | `QQ 12 34 56 C` |
+| `Nino` | UK | `uk_nino_regex_v1` | UK National Insurance number patterns with compact or spaced formatting | Prefix-letter rules, forbidden prefix combinations, six-digit body, and A-D suffix | `0.75` to `1.00` | `AB 12 34 56 C` |
 | `NhsNumber` | UK | `uk_nhs_number_mod11_v1` | UK NHS numbers in compact, spaced, or hyphenated form | NHS Modulus 11 check digit algorithm | `0.70` to `1.00` | `943 476 5919` |
-| `Aadhaar` | IN | `in_aadhaar_verhoeff_v1` | Indian Aadhaar numbers in compact, spaced, or hyphenated form | Verhoeff checksum plus leading `0` / `1` rejection | `0.65` to `1.00` | `2345 6789 0120` |
-| `Pan` | IN | `in_pan_regex_v1` | Indian PAN structure `AAAAA9999A` | Holder-type code validation and non-zero numeric sequence check | `0.78` to `1.00` | `ABCDE1234F` |
+| `Aadhaar` | IN | `in_aadhaar_verhoeff_v1` | Indian Aadhaar numbers in compact, spaced, or hyphenated form | Verhoeff checksum plus leading `0` / `1` rejection | `0.65` to `1.00` | `2345 6789 0124` |
+| `Pan` | IN | `in_pan_regex_v1` | Indian PAN structure `AAAAA9999A` | Holder-type code validation and non-zero numeric sequence check | `0.78` to `1.00` | `AAAPA1234A` |
 | `Cpf` | BR | `br_cpf_mod11_v1` | Brazilian CPF in compact or `###.###.###-##` form | Two-digit weighted MOD-11 checksum and repeated-digit rejection | `0.65` to `1.00` | `529.982.247-25` |
 | `Cnpj` | BR | `br_cnpj_mod11_v1` | Brazilian CNPJ in compact or `##.###.###/####-##` form | Two-digit weighted MOD-11 checksum and repeated-digit rejection | `0.70` to `1.00` | `04.252.011/0001-10` |
-| `SteuerID` | DE, EU | `de_steuer_id_mod11_10_v1` | German 11-digit Steuer-ID / Identifikationsnummer candidates | Required digit distribution, leading-zero rejection, and MOD 11,10 check digit | `0.55` to `1.00` | `86095742791` |
+| `SteuerID` | DE, EU | `de_steuer_id_mod11_10_v1` | German 11-digit Steuer-ID / Identifikationsnummer candidates | Required digit distribution, leading-zero rejection, and MOD 11,10 check digit | `0.55` to `1.00` | `48954371207` |
 | `InseeNir` | FR, EU | `fr_insee_nir_mod97_v1` | French NIR / social security numbers in compact, spaced, or hyphenated form | 13-character NIR plus 2-digit complement-to-97 key, including Corsica `2A` / `2B` handling | `0.65` to `1.00` | `1 84 12 76 451 089 46` |
 | `Custom(String)` | User-defined | User-defined | Provided by third-party recognizers implementing `Recognizer` | Provided by the custom recognizer | User-defined | `customer_id: CUS-12345` |
 

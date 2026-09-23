@@ -7,6 +7,23 @@ on:
   workflow_call:
 
 jobs:
+  dependency-audit:
+    uses: ./.github/workflows/audit.yml
+
+  installer:
+    name: Installer on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Test release installation contract offline
+        run: python3 -m unittest discover -s tests/installer -v
+
   test:
     name: Rust ${{ matrix.rust }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -29,6 +46,10 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
       - name: Check formatting
         run: cargo fmt --all -- --check
 
@@ -37,6 +58,15 @@ jobs:
 
       - name: Run tests
         run: cargo test --workspace --locked
+
+      - name: Test evaluation scoring
+        run: python -m unittest discover -s tests/evaluation -v
+
+      - name: Build evaluation adapter
+        run: cargo build --locked -p cloakrs-cli --example evaluate
+
+      - name: Check labeled detection baseline
+        run: python tests/evaluation/run.py --binary target/debug/examples/evaluate${{ runner.os == 'Windows' && '.exe' || '' }}
 
       - name: Build documentation
         run: cargo doc --workspace --locked --no-deps

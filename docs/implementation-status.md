@@ -1,6 +1,6 @@
 # Implementation Status
 
-cloakrs 0.3.1 is prepared as a Rust workspace with library crates and a CLI:
+cloakrs 0.3.2 is prepared as a Rust workspace with library crates and a CLI:
 
 - `cloakrs-core`
 - `cloakrs-patterns`

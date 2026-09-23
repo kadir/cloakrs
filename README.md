@@ -14,6 +14,13 @@ See [supported entities](docs/supported-entities.md) for the full detection matr
 cargo install cloakrs-cli --locked
 ```
 
+Prebuilt binaries are available for Linux, macOS, and Windows on the
+[releases page](https://github.com/kadir/cloakrs/releases). The repository's
+`install.sh` installs on Linux/macOS, verifies the release checksum and binary
+version, and defaults to `~/.local/bin` without requiring root. See the
+[installation guide](docs/installation.md) for platform requirements, pinned
+versions, and Windows instructions.
+
 For local development:
 
 ```bash
@@ -122,6 +129,9 @@ The benchmark harness covers 1KB through 10MB inputs for plain text, JSON, and C
 
 ## Guides
 
+- [Installation and checksum verification](docs/installation.md)
+- [Security model and reporting](SECURITY.md)
+- [Detection evaluation and known gaps](docs/evaluation.md)
 - [Adding recognizers](docs/adding-recognizers.md)
 - [Adding locale recognizers](docs/locale-guide.md)
 - [Supported entities](docs/supported-entities.md)

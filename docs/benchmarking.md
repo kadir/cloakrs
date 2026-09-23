@@ -9,10 +9,10 @@ Run the full benchmark suite:
 cargo bench -p cloakrs-cli --bench scan_benchmark
 ```
 
-Run a short CI-style smoke benchmark:
+Run a short CI-style smoke benchmark (executes each case once without statistics):
 
 ```bash
-cargo bench -p cloakrs-cli --bench scan_benchmark -- --sample-size 10
+cargo bench --locked -p cloakrs-cli --bench scan_benchmark -- --test
 ```
 
 The benchmark suite covers:
@@ -23,3 +23,8 @@ The benchmark suite covers:
 
 Before publishing performance claims, run equivalent Presidio and DataFog scans
 on the same machine and update the README table with those local measurements.
+
+For labeled detection results, per-case warm latency, and peak process memory,
+see [the evaluation guide](evaluation.md). The Criterion size benchmarks and the
+small synthetic correctness corpus answer different questions; neither establishes
+accuracy on customer data or a speed advantage over another tool.

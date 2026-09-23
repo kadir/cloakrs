@@ -1,0 +1,469 @@
+{
+  "corpus_sha256": "911704a56e5a3c3b2c031585e4f06b1f45d30794d4c10839c63e9f66feb2050a",
+  "predictions": [
+    {
+      "id": "br-cnpj",
+      "findings": [
+        {
+          "entity_type": "Cnpj",
+          "start": 5,
+          "end": 23
+        }
+      ]
+    },
+    {
+      "id": "br-cpf",
+      "findings": [
+        {
+          "entity_type": "Cpf",
+          "start": 4,
+          "end": 18
+        }
+      ]
+    },
+    {
+      "id": "challenge-dutch-address",
+      "findings": []
+    },
+    {
+      "id": "challenge-json-escaped-email",
+      "findings": []
+    },
+    {
+      "id": "challenge-obfuscated-email",
+      "findings": []
+    },
+    {
+      "id": "challenge-unicode-name",
+      "findings": []
+    },
+    {
+      "id": "challenge-unlabeled-bsn",
+      "findings": []
+    },
+    {
+      "id": "csv-email",
+      "findings": [
+        {
+          "entity_type": "Email",
+          "start": 13,
+          "end": 29
+        }
+      ]
+    },
+    {
+      "id": "de-tax",
+      "findings": [
+        {
+          "entity_type": "SteuerID",
+          "start": 10,
+          "end": 21
+        }
+      ]
+    },
+    {
+      "id": "eu-bsn",
+      "findings": [
+        {
+          "entity_type": "Bsn",
+          "start": 4,
+          "end": 13
+        }
+      ]
+    },
+    {
+      "id": "fr-nir",
+      "findings": [
+        {
+          "entity_type": "InseeNir",
+          "start": 4,
+          "end": 19
+        }
+      ]
+    },
+    {
+      "id": "in-aadhaar",
+      "findings": [
+        {
+          "entity_type": "Aadhaar",
+          "start": 8,
+          "end": 22
+        }
+      ]
+    },
+    {
+      "id": "in-pan",
+      "findings": [
+        {
+          "entity_type": "Pan",
+          "start": 4,
+          "end": 14
+        }
+      ]
+    },
+    {
+      "id": "json-email",
+      "findings": [
+        {
+          "entity_type": "Email",
+          "start": 10,
+          "end": 26
+        }
+      ]
+    },
+    {
+      "id": "log-api-key",
+      "findings": [
+        {
+          "entity_type": "ApiKey",
+          "start": 8,
+          "end": 39
+        }
+      ]
+    },
+    {
+      "id": "log-aws-key",
+      "findings": [
+        {
+          "entity_type": "AwsAccessKey",
+          "start": 18,
+          "end": 38
+        }
+      ]
+    },
+    {
+      "id": "log-hostname",
+      "findings": [
+        {
+          "entity_type": "Hostname",
+          "start": 8,
+          "end": 39
+        }
+      ]
+    },
+    {
+      "id": "log-ipv4",
+      "findings": [
+        {
+          "entity_type": "IpAddress",
+          "start": 10,
+          "end": 22
+        }
+      ]
+    },
+    {
+      "id": "log-ipv6",
+      "findings": [
+        {
+          "entity_type": "IpAddress",
+          "start": 5,
+          "end": 16
+        }
+      ]
+    },
+    {
+      "id": "log-jwt",
+      "findings": [
+        {
+          "entity_type": "Jwt",
+          "start": 7,
+          "end": 91
+        }
+      ]
+    },
+    {
+      "id": "log-linux-path",
+      "findings": [
+        {
+          "entity_type": "UserPath",
+          "start": 15,
+          "end": 38
+        }
+      ]
+    },
+    {
+      "id": "log-mac",
+      "findings": [
+        {
+          "entity_type": "MacAddress",
+          "start": 11,
+          "end": 28
+        }
+      ]
+    },
+    {
+      "id": "log-macos-path",
+      "findings": [
+        {
+          "entity_type": "UserPath",
+          "start": 5,
+          "end": 38
+        }
+      ]
+    },
+    {
+      "id": "log-windows-path",
+      "findings": [
+        {
+          "entity_type": "UserPath",
+          "start": 5,
+          "end": 40
+        }
+      ]
+    },
+    {
+      "id": "negative-card",
+      "findings": []
+    },
+    {
+      "id": "negative-date",
+      "findings": []
+    },
+    {
+      "id": "negative-email",
+      "findings": []
+    },
+    {
+      "id": "negative-empty",
+      "findings": []
+    },
+    {
+      "id": "negative-iban",
+      "findings": []
+    },
+    {
+      "id": "negative-ip",
+      "findings": []
+    },
+    {
+      "id": "negative-json",
+      "findings": []
+    },
+    {
+      "id": "negative-log",
+      "findings": []
+    },
+    {
+      "id": "negative-numbers",
+      "findings": []
+    },
+    {
+      "id": "negative-path",
+      "findings": []
+    },
+    {
+      "id": "negative-phrase",
+      "findings": []
+    },
+    {
+      "id": "negative-prose",
+      "findings": []
+    },
+    {
+      "id": "negative-ssn",
+      "findings": []
+    },
+    {
+      "id": "negative-token",
+      "findings": []
+    },
+    {
+      "id": "negative-unicode",
+      "findings": []
+    },
+    {
+      "id": "negative-version",
+      "findings": []
+    },
+    {
+      "id": "nl-bsn",
+      "findings": [
+        {
+          "entity_type": "Bsn",
+          "start": 4,
+          "end": 13
+        }
+      ]
+    },
+    {
+      "id": "prompt-address",
+      "findings": [
+        {
+          "entity_type": "PhysicalAddress",
+          "start": 8,
+          "end": 42
+        }
+      ]
+    },
+    {
+      "id": "prompt-card",
+      "findings": [
+        {
+          "entity_type": "CreditCard",
+          "start": 17,
+          "end": 36
+        }
+      ]
+    },
+    {
+      "id": "prompt-dob",
+      "findings": [
+        {
+          "entity_type": "DateOfBirth",
+          "start": 4,
+          "end": 14
+        }
+      ]
+    },
+    {
+      "id": "prompt-email",
+      "findings": [
+        {
+          "entity_type": "Email",
+          "start": 13,
+          "end": 29
+        }
+      ]
+    },
+    {
+      "id": "prompt-iban",
+      "findings": [
+        {
+          "entity_type": "Iban",
+          "start": 15,
+          "end": 37
+        }
+      ]
+    },
+    {
+      "id": "prompt-name",
+      "findings": [
+        {
+          "entity_type": "PersonName",
+          "start": 14,
+          "end": 24
+        }
+      ]
+    },
+    {
+      "id": "prompt-phone",
+      "findings": [
+        {
+          "entity_type": "PhoneNumber",
+          "start": 5,
+          "end": 20
+        }
+      ]
+    },
+    {
+      "id": "prompt-plus-tag",
+      "findings": [
+        {
+          "entity_type": "Email",
+          "start": 9,
+          "end": 32
+        }
+      ]
+    },
+    {
+      "id": "prompt-ssn",
+      "findings": [
+        {
+          "entity_type": "Ssn",
+          "start": 5,
+          "end": 16
+        }
+      ]
+    },
+    {
+      "id": "sql-email",
+      "findings": [
+        {
+          "entity_type": "Email",
+          "start": 33,
+          "end": 50
+        }
+      ]
+    },
+    {
+      "id": "uk-nhs",
+      "findings": [
+        {
+          "entity_type": "NhsNumber",
+          "start": 11,
+          "end": 23
+        }
+      ]
+    },
+    {
+      "id": "uk-nino",
+      "findings": [
+        {
+          "entity_type": "Nino",
+          "start": 19,
+          "end": 32
+        }
+      ]
+    },
+    {
+      "id": "unicode-prefix",
+      "findings": [
+        {
+          "entity_type": "Email",
+          "start": 18,
+          "end": 34
+        }
+      ]
+    },
+    {
+      "id": "url-encoded-email",
+      "findings": [
+        {
+          "entity_type": "Email",
+          "start": 31,
+          "end": 49
+        },
+        {
+          "entity_type": "Url",
+          "start": 4,
+          "end": 49
+        }
+      ]
+    },
+    {
+      "id": "url-simple",
+      "findings": [
+        {
+          "entity_type": "Url",
+          "start": 4,
+          "end": 37
+        }
+      ]
+    },
+    {
+      "id": "url-ssn",
+      "findings": [
+        {
+          "entity_type": "Ssn",
+          "start": 29,
+          "end": 40
+        },
+        {
+          "entity_type": "Url",
+          "start": 4,
+          "end": 40
+        }
+      ]
+    },
+    {
+      "id": "wallet",
+      "findings": [
+        {
+          "entity_type": "CryptoAddress",
+          "start": 7,
+          "end": 49
+        }
+      ]
+    }
+  ]
+}

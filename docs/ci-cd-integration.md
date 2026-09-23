@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo install cloakrs-cli
+      - run: cargo install cloakrs-cli --locked
       - run: cloakrs audit . --output-format sarif --output cloakrs.sarif
       - uses: github/codeql-action/upload-sarif@v3
         if: always()
@@ -41,7 +41,7 @@ Add cloakrs as a pre-commit hook:
 ```yaml
 repos:
   - repo: https://github.com/kadir/cloakrs
-    rev: v0.3.0
+    rev: v0.3.2
     hooks:
       - id: cloakrs-scan
         args: ["--min-confidence", "0.8", "--locale", "eu"]

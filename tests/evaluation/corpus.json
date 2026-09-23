@@ -1,0 +1,680 @@
+{
+  "version": 1,
+  "description": "Small manually labeled synthetic regression corpus, not a held-out or representative accuracy benchmark. Fictional scenarios and public test identifiers; no collected customer records.",
+  "min_confidence": 0.5,
+  "cases": [
+    {
+      "id": "prompt-email",
+      "category": "prompt",
+      "locale": "US",
+      "text": "Please email jane@example.com about the invoice.",
+      "expected": [
+        {
+          "entity_type": "Email",
+          "start": 13,
+          "end": 29
+        }
+      ]
+    },
+    {
+      "id": "prompt-plus-tag",
+      "category": "prompt",
+      "locale": "US",
+      "text": "Reply to jane+alerts@example.com, please.",
+      "expected": [
+        {
+          "entity_type": "Email",
+          "start": 9,
+          "end": 32
+        }
+      ]
+    },
+    {
+      "id": "unicode-prefix",
+      "category": "prompt",
+      "locale": "US",
+      "text": "Résumé: send to jane@example.com.",
+      "expected": [
+        {
+          "entity_type": "Email",
+          "start": 18,
+          "end": 34
+        }
+      ]
+    },
+    {
+      "id": "prompt-phone",
+      "category": "prompt",
+      "locale": "US",
+      "text": "Call +44 7911 123456 after lunch.",
+      "expected": [
+        {
+          "entity_type": "PhoneNumber",
+          "start": 5,
+          "end": 20
+        }
+      ]
+    },
+    {
+      "id": "prompt-card",
+      "category": "prompt",
+      "locale": "US",
+      "text": "The test card is 4111 1111 1111 1111.",
+      "expected": [
+        {
+          "entity_type": "CreditCard",
+          "start": 17,
+          "end": 36
+        }
+      ]
+    },
+    {
+      "id": "prompt-iban",
+      "category": "prompt",
+      "locale": "US",
+      "text": "Refund to IBAN NL91 ABNA 0417 1643 00.",
+      "expected": [
+        {
+          "entity_type": "Iban",
+          "start": 15,
+          "end": 37
+        }
+      ]
+    },
+    {
+      "id": "prompt-ssn",
+      "category": "prompt",
+      "locale": "US",
+      "text": "SSN: 123-45-6789",
+      "expected": [
+        {
+          "entity_type": "Ssn",
+          "start": 5,
+          "end": 16
+        }
+      ]
+    },
+    {
+      "id": "prompt-dob",
+      "category": "prompt",
+      "locale": "US",
+      "text": "DOB 1990-04-17",
+      "expected": [
+        {
+          "entity_type": "DateOfBirth",
+          "start": 4,
+          "end": 14
+        }
+      ]
+    },
+    {
+      "id": "prompt-name",
+      "category": "prompt",
+      "locale": "US",
+      "text": "Patient name: John Smith",
+      "expected": [
+        {
+          "entity_type": "PersonName",
+          "start": 14,
+          "end": 24
+        }
+      ]
+    },
+    {
+      "id": "prompt-address",
+      "category": "prompt",
+      "locale": "US",
+      "text": "Ship to 123 Main St, Springfield, IL 62704",
+      "expected": [
+        {
+          "entity_type": "PhysicalAddress",
+          "start": 8,
+          "end": 42
+        }
+      ]
+    },
+    {
+      "id": "log-ipv4",
+      "category": "log",
+      "locale": "US",
+      "text": "WARN peer=203.0.113.42 retry=3",
+      "expected": [
+        {
+          "entity_type": "IpAddress",
+          "start": 10,
+          "end": 22
+        }
+      ]
+    },
+    {
+      "id": "log-ipv6",
+      "category": "log",
+      "locale": "US",
+      "text": "peer=2001:db8::1 disconnected",
+      "expected": [
+        {
+          "entity_type": "IpAddress",
+          "start": 5,
+          "end": 16
+        }
+      ]
+    },
+    {
+      "id": "log-mac",
+      "category": "log",
+      "locale": "US",
+      "text": "device mac=00:1A:2B:3C:4D:5E",
+      "expected": [
+        {
+          "entity_type": "MacAddress",
+          "start": 11,
+          "end": 28
+        }
+      ]
+    },
+    {
+      "id": "log-hostname",
+      "category": "log",
+      "locale": "US",
+      "text": "connect db-prod-01.internal.company.com failed",
+      "expected": [
+        {
+          "entity_type": "Hostname",
+          "start": 8,
+          "end": 39
+        }
+      ]
+    },
+    {
+      "id": "log-linux-path",
+      "category": "log",
+      "locale": "US",
+      "text": "failed reading /home/alice/.ssh/id_rsa",
+      "expected": [
+        {
+          "entity_type": "UserPath",
+          "start": 15,
+          "end": 38
+        }
+      ]
+    },
+    {
+      "id": "log-macos-path",
+      "category": "log",
+      "locale": "US",
+      "text": "read /Users/alice/Documents/report.txt",
+      "expected": [
+        {
+          "entity_type": "UserPath",
+          "start": 5,
+          "end": 38
+        }
+      ]
+    },
+    {
+      "id": "log-windows-path",
+      "category": "log",
+      "locale": "US",
+      "text": "read C:\\Users\\alice\\Documents\\report.txt",
+      "expected": [
+        {
+          "entity_type": "UserPath",
+          "start": 5,
+          "end": 40
+        }
+      ]
+    },
+    {
+      "id": "log-api-key",
+      "category": "log",
+      "locale": "US",
+      "text": "api_key=sk_live_51H8abcDEF1234567890xyz",
+      "expected": [
+        {
+          "entity_type": "ApiKey",
+          "start": 8,
+          "end": 39
+        }
+      ]
+    },
+    {
+      "id": "log-aws-key",
+      "category": "log",
+      "locale": "US",
+      "text": "AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE",
+      "expected": [
+        {
+          "entity_type": "AwsAccessKey",
+          "start": 18,
+          "end": 38
+        }
+      ]
+    },
+    {
+      "id": "log-jwt",
+      "category": "log",
+      "locale": "US",
+      "text": "bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+      "expected": [
+        {
+          "entity_type": "Jwt",
+          "start": 7,
+          "end": 91
+        }
+      ]
+    },
+    {
+      "id": "wallet",
+      "category": "prompt",
+      "locale": "US",
+      "text": "wallet 0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe",
+      "expected": [
+        {
+          "entity_type": "CryptoAddress",
+          "start": 7,
+          "end": 49
+        }
+      ]
+    },
+    {
+      "id": "url-simple",
+      "category": "url",
+      "locale": "US",
+      "text": "See https://example.com/profile?id=42.",
+      "expected": [
+        {
+          "entity_type": "Url",
+          "start": 4,
+          "end": 37
+        }
+      ]
+    },
+    {
+      "id": "url-encoded-email",
+      "category": "url",
+      "locale": "US",
+      "text": "GET https://example.com/?email=jane%40example.com",
+      "expected": [
+        {
+          "entity_type": "Url",
+          "start": 4,
+          "end": 49
+        },
+        {
+          "entity_type": "Email",
+          "start": 31,
+          "end": 49
+        }
+      ]
+    },
+    {
+      "id": "url-ssn",
+      "category": "url",
+      "locale": "US",
+      "text": "GET https://example.com/?ssn=123-45-6789",
+      "expected": [
+        {
+          "entity_type": "Url",
+          "start": 4,
+          "end": 40
+        },
+        {
+          "entity_type": "Ssn",
+          "start": 29,
+          "end": 40
+        }
+      ]
+    },
+    {
+      "id": "json-email",
+      "category": "structured",
+      "locale": "US",
+      "text": "{\"email\":\"jane@example.com\",\"attempts\":3}",
+      "expected": [
+        {
+          "entity_type": "Email",
+          "start": 10,
+          "end": 26
+        }
+      ]
+    },
+    {
+      "id": "csv-email",
+      "category": "structured",
+      "locale": "US",
+      "text": "email,status\njane@example.com,active\n",
+      "expected": [
+        {
+          "entity_type": "Email",
+          "start": 13,
+          "end": 29
+        }
+      ]
+    },
+    {
+      "id": "sql-email",
+      "category": "structured",
+      "locale": "US",
+      "text": "INSERT INTO users(email) VALUES ('jane@example.com');",
+      "expected": [
+        {
+          "entity_type": "Email",
+          "start": 34,
+          "end": 50
+        }
+      ]
+    },
+    {
+      "id": "nl-bsn",
+      "category": "locale",
+      "locale": "NL",
+      "text": "BSN 123456782",
+      "expected": [
+        {
+          "entity_type": "Bsn",
+          "start": 4,
+          "end": 13
+        }
+      ]
+    },
+    {
+      "id": "uk-nino",
+      "category": "locale",
+      "locale": "UK",
+      "text": "National insurance AB 12 34 56 C",
+      "expected": [
+        {
+          "entity_type": "Nino",
+          "start": 19,
+          "end": 32
+        }
+      ]
+    },
+    {
+      "id": "uk-nhs",
+      "category": "locale",
+      "locale": "UK",
+      "text": "NHS number 943 476 5919",
+      "expected": [
+        {
+          "entity_type": "NhsNumber",
+          "start": 11,
+          "end": 23
+        }
+      ]
+    },
+    {
+      "id": "de-tax",
+      "category": "locale",
+      "locale": "DE",
+      "text": "Steuer-ID 48954371207",
+      "expected": [
+        {
+          "entity_type": "SteuerID",
+          "start": 10,
+          "end": 21
+        }
+      ]
+    },
+    {
+      "id": "in-aadhaar",
+      "category": "locale",
+      "locale": "IN",
+      "text": "Aadhaar 2345 6789 0124",
+      "expected": [
+        {
+          "entity_type": "Aadhaar",
+          "start": 8,
+          "end": 22
+        }
+      ]
+    },
+    {
+      "id": "in-pan",
+      "category": "locale",
+      "locale": "IN",
+      "text": "PAN AAAPA1234A",
+      "expected": [
+        {
+          "entity_type": "Pan",
+          "start": 4,
+          "end": 14
+        }
+      ]
+    },
+    {
+      "id": "br-cpf",
+      "category": "locale",
+      "locale": "BR",
+      "text": "CPF 529.982.247-25",
+      "expected": [
+        {
+          "entity_type": "Cpf",
+          "start": 4,
+          "end": 18
+        }
+      ]
+    },
+    {
+      "id": "br-cnpj",
+      "category": "locale",
+      "locale": "BR",
+      "text": "CNPJ 04.252.011/0001-10",
+      "expected": [
+        {
+          "entity_type": "Cnpj",
+          "start": 5,
+          "end": 23
+        }
+      ]
+    },
+    {
+      "id": "fr-nir",
+      "category": "locale",
+      "locale": "FR",
+      "text": "NIR 151024610204325",
+      "expected": [
+        {
+          "entity_type": "InseeNir",
+          "start": 4,
+          "end": 19
+        }
+      ]
+    },
+    {
+      "id": "eu-bsn",
+      "category": "locale",
+      "locale": "EU",
+      "text": "BSN 123456782",
+      "expected": [
+        {
+          "entity_type": "Bsn",
+          "start": 4,
+          "end": 13
+        }
+      ]
+    },
+    {
+      "id": "negative-empty",
+      "category": "negative",
+      "locale": "US",
+      "text": "",
+      "expected": []
+    },
+    {
+      "id": "negative-prose",
+      "category": "negative",
+      "locale": "US",
+      "text": "Please summarize the release notes.",
+      "expected": []
+    },
+    {
+      "id": "negative-log",
+      "category": "negative",
+      "locale": "US",
+      "text": "INFO worker=7 retry=3 elapsed_ms=42 status=ok",
+      "expected": []
+    },
+    {
+      "id": "negative-date",
+      "category": "negative",
+      "locale": "US",
+      "text": "Deployment scheduled for 2026-09-23.",
+      "expected": []
+    },
+    {
+      "id": "negative-version",
+      "category": "negative",
+      "locale": "US",
+      "text": "Using version 1.2.3 with build 427.",
+      "expected": []
+    },
+    {
+      "id": "negative-ip",
+      "category": "negative",
+      "locale": "US",
+      "text": "peer=999.888.777.666",
+      "expected": []
+    },
+    {
+      "id": "negative-ssn",
+      "category": "negative",
+      "locale": "US",
+      "text": "SSN 000-00-0000",
+      "expected": []
+    },
+    {
+      "id": "negative-card",
+      "category": "negative",
+      "locale": "US",
+      "text": "card 4111 1111 1111 1112",
+      "expected": []
+    },
+    {
+      "id": "negative-iban",
+      "category": "negative",
+      "locale": "US",
+      "text": "IBAN NL00ABNA0417164300",
+      "expected": []
+    },
+    {
+      "id": "negative-email",
+      "category": "negative",
+      "locale": "US",
+      "text": "Email user@localhost and ping @everyone.",
+      "expected": []
+    },
+    {
+      "id": "negative-path",
+      "category": "negative",
+      "locale": "US",
+      "text": "Read /usr/local/bin/tool and ./src/main.rs",
+      "expected": []
+    },
+    {
+      "id": "negative-token",
+      "category": "negative",
+      "locale": "US",
+      "text": "token=aaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected": []
+    },
+    {
+      "id": "negative-phrase",
+      "category": "negative",
+      "locale": "US",
+      "text": "The White House released a statement.",
+      "expected": []
+    },
+    {
+      "id": "negative-json",
+      "category": "negative",
+      "locale": "US",
+      "text": "{\"count\":42,\"enabled\":true,\"status\":\"ready\"}",
+      "expected": []
+    },
+    {
+      "id": "negative-numbers",
+      "category": "negative",
+      "locale": "US",
+      "text": "Processed 1234 rows in 5678 ms.",
+      "expected": []
+    },
+    {
+      "id": "negative-unicode",
+      "category": "negative",
+      "locale": "US",
+      "text": "Résumé prêt. 東京. Geen persoonsgegevens.",
+      "expected": []
+    },
+    {
+      "id": "challenge-obfuscated-email",
+      "category": "challenge",
+      "locale": "US",
+      "text": "Contact jane [at] example [dot] com",
+      "expected": [
+        {
+          "entity_type": "Email",
+          "start": 8,
+          "end": 35
+        }
+      ],
+      "note": "Obfuscated email; desired coverage outside ordinary email syntax."
+    },
+    {
+      "id": "challenge-unicode-name",
+      "category": "challenge",
+      "locale": "US",
+      "text": "Patient name: Łukasz Żółć",
+      "expected": [
+        {
+          "entity_type": "PersonName",
+          "start": 14,
+          "end": 30
+        }
+      ],
+      "note": "Dictionary coverage challenge, not a claim of general name recognition."
+    },
+    {
+      "id": "challenge-dutch-address",
+      "category": "challenge",
+      "locale": "NL",
+      "text": "Adres: Keizersgracht 123, 1015 CJ Amsterdam",
+      "expected": [
+        {
+          "entity_type": "PhysicalAddress",
+          "start": 7,
+          "end": 43
+        }
+      ],
+      "note": "Desired non-US address coverage; current address recognizer is US-specific."
+    },
+    {
+      "id": "challenge-json-escaped-email",
+      "category": "challenge",
+      "locale": "US",
+      "text": "{\"email\":\"jane\\u0040example.com\"}",
+      "expected": [
+        {
+          "entity_type": "Email",
+          "start": 10,
+          "end": 31
+        }
+      ],
+      "note": "Raw-text scanner evaluation; structured adapter decoding is not exercised."
+    },
+    {
+      "id": "challenge-unlabeled-bsn",
+      "category": "challenge",
+      "locale": "NL",
+      "text": "Record 123456782",
+      "expected": [
+        {
+          "entity_type": "Bsn",
+          "start": 7,
+          "end": 16
+        }
+      ],
+      "note": "Ambiguous numeric identifier at the CLI confidence threshold."
+    }
+  ]
+}

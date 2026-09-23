@@ -101,12 +101,66 @@ jobs:
           shasum -a 256 cloakrs-* > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
+      - name: Extract release notes
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_REPO: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          tag = os.environ['RELEASE_TAG']
+          version = tag.removeprefix('v')
+          changelog = Path('CHANGELOG.md').read_text(encoding='utf-8')
+          section = changelog.split(f'## [{version}] - ', 1)[1]
+          notes = section.split('\n', 1)[1].split('\n## [', 1)[0].strip()
+          security = f"https://github.com/{os.environ['RELEASE_REPO']}/blob/{tag}/SECURITY.md"
+          notes = notes.replace('](SECURITY.md)', f']({security})')
+          Path('release-notes.md').write_text(notes + '\n', encoding='utf-8')
+          PY
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: false
+          body_path: release-notes.md
           files: |
             artifacts/cloakrs-*
             artifacts/SHA256SUMS.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  smoke:
+    name: Published install on ${{ matrix.target }}
+    needs: release
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-24.04-arm
+          - target: x86_64-apple-darwin
+            os: macos-15-intel
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Verify checksum, version, detection, masking, and installation
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_REPO: ${{ github.repository }}
+          RELEASE_TARGET: ${{ matrix.target }}
+        shell: bash
+        run: python tests/release/smoke.py --tag "$RELEASE_TAG" --target "$RELEASE_TARGET" --repo "$RELEASE_REPO"

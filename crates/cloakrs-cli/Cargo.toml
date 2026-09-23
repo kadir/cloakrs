@@ -17,10 +17,10 @@ name = "cloakrs"
 path = "src/main.rs"
 
 [dependencies]
-cloakrs-adapters = { path = "../cloakrs-adapters", version = "0.3.1" }
-cloakrs-core = { path = "../cloakrs-core", version = "0.3.1" }
-cloakrs-locales = { path = "../cloakrs-locales", version = "0.3.1" }
-cloakrs-patterns = { path = "../cloakrs-patterns", version = "0.3.1" }
+cloakrs-adapters = { path = "../cloakrs-adapters", version = "0.3.2" }
+cloakrs-core = { path = "../cloakrs-core", version = "0.3.2" }
+cloakrs-locales = { path = "../cloakrs-locales", version = "0.3.2" }
+cloakrs-patterns = { path = "../cloakrs-patterns", version = "0.3.2" }
 clap.workspace = true
 indicatif.workspace = true
 ignore.workspace = true
