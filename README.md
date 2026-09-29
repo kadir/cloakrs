@@ -66,7 +66,7 @@ cloakrs sanitize prompt.txt --mapping mapping.json --output clean.txt
 # Restore placeholders in the model's response using that mapping (tolerant by default).
 cloakrs restore response.txt --mapping mapping.json --output final.txt
 
-# Development version: keep URLs, hostnames, and user paths while masking other entities.
+# Keep URLs, hostnames, and user paths while masking other entities (0.4.0+).
 cloakrs --exclude-entities url,hostname,user-path stream
 ```
 
@@ -76,7 +76,7 @@ The same exclusions can be configured in `.cloakrs.toml`:
 exclude_entities = ["url", "hostname", "user-path"]
 ```
 
-Entity exclusions are available in the development version for the next release.
+Entity exclusions are available starting with version 0.4.0.
 They apply to `scan`, `stream`, `audit`, `pre-commit`, and `sanitize`; `restore`
 uses its saved mapping. CLI and TOML exclusions are combined, and unknown names
 are rejected. Excluding `url` preserves URLs while nested URL-query recognizers

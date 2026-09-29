@@ -1,8 +1,8 @@
 # Entity exclusions
 
-Available in the development version for the next release. Version 0.3.2 does
-not have this option. Exclusions let an application preserve selected entity
-types while continuing to detect other supported types. All recognizers remain
+Available starting with version 0.4.0. Earlier versions do not have this option.
+Exclusions let an application preserve selected entity types while continuing
+to detect other supported types. All recognizers remain
 enabled by default for the selected locale.
 
 ## CLI and configuration

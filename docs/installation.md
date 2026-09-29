@@ -9,7 +9,7 @@ cargo install cloakrs-cli --locked
 cloakrs --version
 ```
 
-To reproduce the current published version, add `--version 0.3.2`. The workspace
+To reproduce the current published version, add `--version 0.4.0`. The workspace
 supports Rust 1.75 and newer; use `--locked` to use the tested dependency versions.
 
 ## Linux and macOS binaries
@@ -43,10 +43,10 @@ operating-system security controls.
 Pin a version and choose the installation directory:
 
 ```sh
-CLOAKRS_VERSION=v0.3.2 CLOAKRS_INSTALL_DIR="$HOME/bin" sh install-cloakrs.sh
+CLOAKRS_VERSION=v0.4.0 CLOAKRS_INSTALL_DIR="$HOME/bin" sh install-cloakrs.sh
 ```
 
-`CLOAKRS_VERSION` accepts `latest`, `v0.3.2`, or `0.3.2`. For `latest`, the
+`CLOAKRS_VERSION` accepts `latest`, `v0.4.0`, or `0.4.0`. For `latest`, the
 installer reads `SHA256SUMS.txt` and downloads the archive from the specific tag
 named there. It verifies that archive's SHA256, checks its contents and binary
 version, then atomically replaces the destination. A failed download or checksum
@@ -62,10 +62,10 @@ independent signatures and cannot protect against a compromised release account.
 
 Install via Cargo as above, or download the Windows x86_64 ZIP and
 `SHA256SUMS.txt` from the same [release](https://github.com/kadir/cloakrs/releases).
-For example, after downloading both v0.3.2 files into the current directory:
+For example, after downloading both v0.4.0 files into the current directory:
 
 ```powershell
-$archive = 'cloakrs-v0.3.2-x86_64-pc-windows-msvc.zip'
+$archive = 'cloakrs-v0.4.0-x86_64-pc-windows-msvc.zip'
 $entries = @(Get-Content .\SHA256SUMS.txt | Where-Object { ($_ -split '\s+')[1] -eq $archive })
 if ($entries.Count -ne 1) { throw 'Expected one checksum for the archive' }
 $expected = ($entries[0] -split '\s+')[0]

@@ -41,7 +41,7 @@ Add cloakrs as a pre-commit hook:
 ```yaml
 repos:
   - repo: https://github.com/kadir/cloakrs
-    rev: v0.3.2
+    rev: v0.4.0
     hooks:
       - id: cloakrs-scan
         args: ["--min-confidence", "0.8", "--locale", "eu"]

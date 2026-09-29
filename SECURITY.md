@@ -20,7 +20,7 @@ unknown identifier formats, or values below the confidence threshold. False
 positives can also change otherwise harmless text. See the
 [labeled evaluation and known gaps](docs/evaluation.md).
 
-Entity exclusions (in the next release) intentionally leave selected types
+Entity exclusions (available since 0.4.0) intentionally leave selected types
 unmasked. Excluding a URL does not establish that its contents are safe: supported
 nested email/US SSN findings remain detectable, but userinfo passwords and some
 encoded API keys are not detected independently. Keep URL masking enabled for
@@ -48,8 +48,8 @@ characters. Generate keys with a cryptographically secure random generator;
 do not use a password, example key, or a key committed to source control.
 The CLI does not currently expose encryption key management.
 
-Version 0.3.2 uses a fresh 96-bit OS-random nonce for every encrypted
-finding. OS randomness failure returns an error through `try_replacement` and the
+Starting with version 0.3.2, encryption uses a fresh 96-bit OS-random nonce for
+every encrypted finding. OS randomness failure returns an error through `try_replacement` and the
 scanner. The convenience `replacement` method falls back to a redaction tag on
 any error. Nonces are random, not a guarantee of uniqueness. Rotate keys well
 before 2^32 encryptions across all processes sharing a key; the library does not

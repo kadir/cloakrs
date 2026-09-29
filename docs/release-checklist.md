@@ -38,12 +38,12 @@ announcing the release.
 Run in dependency order:
 
 ```bash
-cargo publish -p cloakrs-core --dry-run
-cargo publish -p cloakrs-patterns --dry-run
-cargo publish -p cloakrs-locales --dry-run
-cargo publish -p cloakrs-adapters --dry-run
-cargo publish -p cloakrs-tracing --dry-run
-cargo publish -p cloakrs-cli --dry-run
+cargo publish -p cloakrs-core --locked --dry-run
+cargo publish -p cloakrs-patterns --locked --dry-run
+cargo publish -p cloakrs-locales --locked --dry-run
+cargo publish -p cloakrs-adapters --locked --dry-run
+cargo publish -p cloakrs-tracing --locked --dry-run
+cargo publish -p cloakrs-cli --locked --dry-run
 ```
 
 Before publishing a new coordinated workspace version, only `cloakrs-core` can fully verify against
@@ -65,5 +65,5 @@ The release workflow builds binaries and publishes SHA256 checksums.
 Before tagging, require green CI on Linux, macOS, and Windows, including Rust 1.75.
 Set the changelog release date, commit the release changes, and verify that the tag
 points to the exact tested commit. Do not infer cross-platform readiness from a
-single local test run. Keep the contributor's entity-exclusions PR separate until
-its review is resolved.
+single local test run. Merge reviewed contributions before preparing the release
+commit.
