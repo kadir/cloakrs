@@ -6,7 +6,7 @@ use crate::{
     RecognizerRegistry, Result,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
 /// Builder for configuring a [`Scanner`].
@@ -26,6 +26,7 @@ pub struct ScannerBuilder {
     min_confidence: Confidence,
     allow_list: Vec<String>,
     deny_list: Vec<String>,
+    excluded_entities: HashSet<EntityType>,
 }
 
 impl Default for ScannerBuilder {
@@ -37,6 +38,7 @@ impl Default for ScannerBuilder {
             min_confidence: Confidence::ZERO,
             allow_list: Vec::new(),
             deny_list: Vec::new(),
+            excluded_entities: HashSet::new(),
         }
     }
 }
@@ -133,6 +135,25 @@ impl ScannerBuilder {
         self
     }
 
+    /// Excludes findings for selected entity types.
+    ///
+    /// Empty by default. Calls are additive and duplicates are ignored. All
+    /// recognizers still run, so excluding an outer URL finding does not exclude
+    /// independently detected entities inside it. Exclusions apply before
+    /// overlap resolution, reporting, and masking, and before literal deny/allow
+    /// lists. Explicit deny-list findings are not removed by these exclusions.
+    ///
+    /// Excluding a container does not guarantee that its contents are safe:
+    /// URL credentials unsupported by other recognizers may remain visible.
+    #[must_use]
+    pub fn exclude_entities<I>(mut self, entity_types: I) -> Self
+    where
+        I: IntoIterator<Item = EntityType>,
+    {
+        self.excluded_entities.extend(entity_types);
+        self
+    }
+
     /// Builds a scanner.
     pub fn build(self) -> Result<Scanner> {
         if self.registry.is_empty() {
@@ -146,6 +167,7 @@ impl ScannerBuilder {
             min_confidence: self.min_confidence,
             allow_list: self.allow_list,
             deny_list: self.deny_list,
+            excluded_entities: self.excluded_entities,
         })
     }
 }
@@ -158,6 +180,7 @@ pub struct Scanner {
     min_confidence: Confidence,
     allow_list: Vec<String>,
     deny_list: Vec<String>,
+    excluded_entities: HashSet<EntityType>,
 }
 
 impl Scanner {
@@ -182,6 +205,7 @@ impl Scanner {
     pub fn scan(&self, text: &str) -> Result<ScanResult> {
         let started = Instant::now();
         let mut findings = self.registry.scan_locale(text, &self.locale);
+        findings.retain(|finding| !self.excluded_entities.contains(&finding.entity_type));
         findings.extend(deny_list_findings(text, &self.deny_list));
         let allow_spans = literal_spans(text, &self.allow_list);
         findings.retain(|finding| !allow_spans.iter().any(|span| span.overlaps(finding.span)));
@@ -439,6 +463,21 @@ mod tests {
     }
 
     #[test]
+    fn test_scanner_excludes_selected_entity_types() {
+        let scanner = Scanner::builder()
+            .recognizer(EmailRecognizer)
+            .exclude_entities([EntityType::Email])
+            .build()
+            .unwrap();
+        let result = scanner.scan("Contact user@example.com").unwrap();
+        assert!(result.findings.is_empty());
+        assert_eq!(
+            result.masked_text.as_deref(),
+            Some("Contact user@example.com")
+        );
+    }
+
+    #[test]
     fn test_scanner_deny_list_adds_custom_finding() {
         let scanner = Scanner::builder()
             .recognizer(EmailRecognizer)
@@ -452,6 +491,84 @@ mod tests {
             EntityType::Custom("DenyList".to_string())
         );
         assert_eq!(result.masked_text.as_deref(), Some("ticket [DENYLIST]"));
+    }
+
+    #[test]
+    fn test_exclusions_preserve_explicit_deny_list_and_allow_list_precedence() {
+        let excluded = [EntityType::Email, EntityType::Custom("DenyList".into())];
+        let scanner = Scanner::builder()
+            .recognizer(EmailRecognizer)
+            .exclude_entities(excluded.clone())
+            .deny_list(["user@example.com"])
+            .build()
+            .unwrap();
+        let result = scanner.scan("Contact user@example.com").unwrap();
+        assert_eq!(result.masked_text.as_deref(), Some("Contact [DENYLIST]"));
+        assert_eq!(result.stats.total_findings, 1);
+        assert_eq!(result.findings[0].recognizer_id, "deny_list_v1");
+
+        let scanner = Scanner::builder()
+            .recognizer(EmailRecognizer)
+            .exclude_entities(excluded)
+            .deny_list(["user@example.com"])
+            .allow_list(["user@example.com"])
+            .build()
+            .unwrap();
+        let result = scanner.scan("Contact user@example.com").unwrap();
+        assert!(result.findings.is_empty());
+        assert_eq!(
+            result.masked_text.as_deref(),
+            Some("Contact user@example.com")
+        );
+    }
+
+    #[test]
+    fn test_exclusion_uses_finding_type_not_recognizer_type() {
+        struct ContainerRecognizer;
+        impl Recognizer for ContainerRecognizer {
+            fn id(&self) -> &str {
+                "container_test"
+            }
+            fn entity_type(&self) -> EntityType {
+                EntityType::Url
+            }
+            fn supported_locales(&self) -> &[Locale] {
+                &[]
+            }
+            fn scan(&self, text: &str) -> Vec<PiiEntity> {
+                [
+                    (EntityType::Url, Span::new(0, text.len()), "container_test"),
+                    (
+                        EntityType::Email,
+                        Span::new(25, text.len()),
+                        "url_query_email_test",
+                    ),
+                ]
+                .into_iter()
+                .map(|(entity_type, span, id)| PiiEntity {
+                    entity_type,
+                    span,
+                    text: text[span.start..span.end].into(),
+                    confidence: Confidence::ONE,
+                    recognizer_id: id.into(),
+                })
+                .collect()
+            }
+        }
+        let scanner = Scanner::builder()
+            .recognizer(ContainerRecognizer)
+            .exclude_entities([EntityType::Url])
+            .build()
+            .unwrap();
+        let result = scanner
+            .scan("https://example.com?user=user@example.com")
+            .unwrap();
+        assert_eq!(result.findings.len(), 1);
+        assert_eq!(result.findings[0].entity_type, EntityType::Email);
+        assert_eq!(
+            result.masked_text.as_deref(),
+            Some("https://example.com?user=[EMAIL]")
+        );
     }
     #[test]
     fn test_reporting_preserves_nested_findings_across_finished_spans() {

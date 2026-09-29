@@ -20,6 +20,12 @@ unknown identifier formats, or values below the confidence threshold. False
 positives can also change otherwise harmless text. See the
 [labeled evaluation and known gaps](docs/evaluation.md).
 
+Entity exclusions (in the next release) intentionally leave selected types
+unmasked. Excluding a URL does not establish that its contents are safe: supported
+nested email/US SSN findings remain detectable, but userinfo passwords and some
+encoded API keys are not detected independently. Keep URL masking enabled for
+credential-bearing links. See [the exclusion rules](docs/entity-exclusions.md).
+
 A sanitized result is not a guarantee that arbitrary input contains no secrets.
 Check representative data for your application, choose the correct locale, and
 review output before sending high-impact information outside your trust boundary.

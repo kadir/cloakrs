@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+- Selective entity exclusions through `ScannerBuilder::exclude_entities`,
+  `--exclude-entities`, and TOML configuration, contributed by
+  [Etienne Tremel](https://github.com/etiennetremel) in [PR #2](https://github.com/kadir/cloakrs/pull/2).
+  Exclusions are opt-in, cumulative across CLI and configuration, and apply to
+  scan, stream, audit, pre-commit, and sanitize. Unknown names are rejected.
+- End-to-end coverage for exclusions with encoded/nested URL findings, Unicode,
+  locales, structured JSON, literal lists, invalid configuration, and exact
+  sanitize/restore round trips. Documented URL-credential exposure remains a
+  known limitation when URL detection is excluded.
+
+### Changed
+- Audit and pre-commit build their scanner once per invocation and propagate
+  configuration errors even when there are no input files.
+- The sample configuration leaves exclusions commented out, preserving default
+  detection when copied. CLI help and documentation explain configuration
+  merging and URL-credential limitations.
+
 ## [0.3.2] - 2026-09-23
 
 ### Security

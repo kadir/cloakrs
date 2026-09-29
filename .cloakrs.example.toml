@@ -3,3 +3,7 @@ allow_list = ["John Smith LLC"]
 
 # Literal values that should always be reported and masked.
 deny_list = ["PRJ-12345"]
+
+# Optional entity findings to exclude. Unknown names are rejected.
+# Disabled by default: excluding URLs can expose credentials inside them.
+# exclude_entities = ["url", "hostname", "user-path"]

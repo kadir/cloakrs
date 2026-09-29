@@ -43,6 +43,12 @@ pub struct GlobalOptions {
         default_value = "universal"
     )]
     pub locale: Vec<LocaleArg>,
+    /// Entity types to exclude, separated by commas.
+    ///
+    /// Combined with exclusions in the configuration file. Excluding URL findings
+    /// can leave embedded credentials visible; other entity types remain active.
+    #[arg(long, global = true, value_delimiter = ',')]
+    pub exclude_entities: Vec<EntityTypeArg>,
     /// Masking strategy to apply.
     #[arg(long, global = true, default_value = "redact")]
     pub strategy: StrategyArg,
@@ -267,6 +273,104 @@ impl From<PlaceholderStyleArg> for cloakrs_core::PlaceholderStyle {
         match value {
             PlaceholderStyleArg::Brackets => Self::Brackets,
             PlaceholderStyleArg::Braces => Self::Braces,
+        }
+    }
+}
+
+/// Entity types accepted by `--exclude-entities` and configuration files.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, ValueEnum)]
+#[value(rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
+pub enum EntityTypeArg {
+    /// Email address.
+    Email,
+    /// Phone number.
+    PhoneNumber,
+    /// Payment card number.
+    CreditCard,
+    /// International Bank Account Number.
+    Iban,
+    /// IP address.
+    IpAddress,
+    /// URL, including the protection provided by masking the entire URL.
+    Url,
+    /// Date of birth.
+    DateOfBirth,
+    /// Generic API key.
+    ApiKey,
+    /// JSON Web Token.
+    Jwt,
+    /// AWS access key.
+    AwsAccessKey,
+    /// Cryptocurrency wallet address.
+    CryptoAddress,
+    /// MAC address.
+    MacAddress,
+    /// Internal hostname or machine name.
+    Hostname,
+    /// User home-directory path.
+    UserPath,
+    /// Person name.
+    PersonName,
+    /// Physical street address.
+    PhysicalAddress,
+    /// Reserved passport type; no bundled recognizer.
+    PassportNumber,
+    /// Reserved driver's license type; no bundled recognizer.
+    DriversLicense,
+    /// US Social Security Number.
+    Ssn,
+    /// Dutch Burgerservicenummer.
+    Bsn,
+    /// UK National Insurance number.
+    Nino,
+    /// UK NHS number.
+    NhsNumber,
+    /// Indian Aadhaar number.
+    Aadhaar,
+    /// Indian Permanent Account Number.
+    Pan,
+    /// Brazilian CPF.
+    Cpf,
+    /// Brazilian CNPJ.
+    Cnpj,
+    /// German tax identifier.
+    SteuerId,
+    /// French INSEE/NIR number.
+    InseeNir,
+}
+
+impl From<EntityTypeArg> for EntityType {
+    fn from(value: EntityTypeArg) -> Self {
+        match value {
+            EntityTypeArg::Email => Self::Email,
+            EntityTypeArg::PhoneNumber => Self::PhoneNumber,
+            EntityTypeArg::CreditCard => Self::CreditCard,
+            EntityTypeArg::Iban => Self::Iban,
+            EntityTypeArg::IpAddress => Self::IpAddress,
+            EntityTypeArg::Url => Self::Url,
+            EntityTypeArg::DateOfBirth => Self::DateOfBirth,
+            EntityTypeArg::ApiKey => Self::ApiKey,
+            EntityTypeArg::Jwt => Self::Jwt,
+            EntityTypeArg::AwsAccessKey => Self::AwsAccessKey,
+            EntityTypeArg::CryptoAddress => Self::CryptoAddress,
+            EntityTypeArg::MacAddress => Self::MacAddress,
+            EntityTypeArg::Hostname => Self::Hostname,
+            EntityTypeArg::UserPath => Self::UserPath,
+            EntityTypeArg::PersonName => Self::PersonName,
+            EntityTypeArg::PhysicalAddress => Self::PhysicalAddress,
+            EntityTypeArg::PassportNumber => Self::PassportNumber,
+            EntityTypeArg::DriversLicense => Self::DriversLicense,
+            EntityTypeArg::Ssn => Self::Ssn,
+            EntityTypeArg::Bsn => Self::Bsn,
+            EntityTypeArg::Nino => Self::Nino,
+            EntityTypeArg::NhsNumber => Self::NhsNumber,
+            EntityTypeArg::Aadhaar => Self::Aadhaar,
+            EntityTypeArg::Pan => Self::Pan,
+            EntityTypeArg::Cpf => Self::Cpf,
+            EntityTypeArg::Cnpj => Self::Cnpj,
+            EntityTypeArg::SteuerId => Self::SteuerID,
+            EntityTypeArg::InseeNir => Self::InseeNir,
         }
     }
 }
@@ -664,9 +768,10 @@ fn audit_directory(global: &GlobalOptions, args: &AuditArgs) -> Result<AuditRepo
         return Err(format!("{} is not a directory", args.path.display()));
     }
 
+    let scanner = build_scanner(global)?;
     let paths = collect_audit_paths(args)?;
     let progress = audit_progress(paths.len(), global);
-    let outcomes = scan_audit_paths(&paths, global, args, progress.as_ref())?;
+    let outcomes = scan_audit_paths(&paths, &scanner, args, progress.as_ref())?;
     if let Some(progress) = progress {
         progress.finish_and_clear();
     }
@@ -679,6 +784,7 @@ fn audit_directory(global: &GlobalOptions, args: &AuditArgs) -> Result<AuditRepo
 }
 
 fn pre_commit_paths(global: &GlobalOptions, args: &PreCommitArgs) -> Result<AuditReport, String> {
+    let scanner = build_scanner(global)?;
     if args.paths.is_empty() {
         return Ok(AuditReport::from_outcomes(
             "pre-commit".to_string(),
@@ -690,7 +796,7 @@ fn pre_commit_paths(global: &GlobalOptions, args: &PreCommitArgs) -> Result<Audi
     let outcomes = args
         .paths
         .iter()
-        .map(|path| scan_audit_path(path, global, args.severity, None))
+        .map(|path| scan_audit_path(path, &scanner, args.severity, None))
         .collect();
     Ok(AuditReport::from_outcomes(
         "pre-commit".to_string(),
@@ -725,7 +831,7 @@ fn collect_audit_paths(args: &AuditArgs) -> Result<Vec<PathBuf>, String> {
 
 fn scan_audit_paths(
     paths: &[PathBuf],
-    global: &GlobalOptions,
+    scanner: &Scanner,
     args: &AuditArgs,
     progress: Option<&ProgressBar>,
 ) -> Result<Vec<AuditScanOutcome>, String> {
@@ -737,29 +843,27 @@ fn scan_audit_paths(
         return Ok(pool.install(|| {
             paths
                 .par_iter()
-                .map(|path| scan_audit_path(path, global, args.severity, progress))
+                .map(|path| scan_audit_path(path, scanner, args.severity, progress))
                 .collect()
         }));
     }
 
     Ok(paths
         .par_iter()
-        .map(|path| scan_audit_path(path, global, args.severity, progress))
+        .map(|path| scan_audit_path(path, scanner, args.severity, progress))
         .collect())
 }
 
 fn scan_audit_path(
     path: &Path,
-    global: &GlobalOptions,
+    scanner: &Scanner,
     min_severity: SeverityArg,
     progress: Option<&ProgressBar>,
 ) -> AuditScanOutcome {
     let outcome = match read_text_file(path) {
         Ok(input) => {
             let format = detect_format(path, InputFormat::Auto);
-            match build_scanner(global).and_then(|scanner| {
-                scan_input(&input, format, &scanner, &audit_scan_args(path, format))
-            }) {
+            match scan_input(&input, format, scanner, &audit_scan_args(path, format)) {
                 Ok(report) => AuditScanOutcome::Scanned(AuditFileReport::from_adapter_report(
                     path,
                     format,
@@ -799,9 +903,18 @@ fn read_text_file(path: &Path) -> Result<String, String> {
 
 fn build_scanner(global: &GlobalOptions) -> Result<Scanner, String> {
     let config = load_config(global.config.as_deref())?;
+    let config_exclusions = config.exclude_entities();
     let mut builder = cloakrs_locales::default_registry()
         .into_scanner_builder()
         .locale(selected_locale(&global.locale))
+        .exclude_entities(
+            global
+                .exclude_entities
+                .iter()
+                .chain(config_exclusions.iter())
+                .copied()
+                .map(EntityType::from),
+        )
         .strategy(mask_strategy(global.strategy)?)
         .allow_list(config.allow_list())
         .deny_list(config.deny_list());
@@ -818,6 +931,8 @@ struct CloakConfig {
     #[serde(default)]
     deny_list: Vec<String>,
     #[serde(default)]
+    exclude_entities: Vec<EntityTypeArg>,
+    #[serde(default)]
     scanner: ScannerConfig,
 }
 
@@ -827,6 +942,8 @@ struct ScannerConfig {
     allow_list: Vec<String>,
     #[serde(default)]
     deny_list: Vec<String>,
+    #[serde(default)]
+    exclude_entities: Vec<EntityTypeArg>,
 }
 
 impl CloakConfig {
@@ -843,6 +960,14 @@ impl CloakConfig {
             .iter()
             .chain(self.scanner.deny_list.iter())
             .cloned()
+            .collect()
+    }
+
+    fn exclude_entities(&self) -> Vec<EntityTypeArg> {
+        self.exclude_entities
+            .iter()
+            .chain(self.scanner.exclude_entities.iter())
+            .copied()
             .collect()
     }
 }
@@ -1626,6 +1751,8 @@ mod tests {
             "cloakrs",
             "--locale",
             "eu,nl",
+            "--exclude-entities",
+            "url,hostname,user-path",
             "--strategy",
             "partial-mask",
             "--min-confidence",
@@ -1641,6 +1768,14 @@ mod tests {
         ]);
 
         assert_eq!(cli.global.locale, vec![LocaleArg::Eu, LocaleArg::Nl]);
+        assert_eq!(
+            cli.global.exclude_entities,
+            [
+                EntityTypeArg::Url,
+                EntityTypeArg::Hostname,
+                EntityTypeArg::UserPath
+            ]
+        );
         assert_eq!(cli.global.strategy, StrategyArg::PartialMask);
         assert_eq!(cli.global.min_confidence, 0.8);
         assert_eq!(cli.global.output_format, OutputFormat::Json);
@@ -1676,6 +1811,18 @@ mod tests {
             args.paths,
             [PathBuf::from("src/lib.rs"), PathBuf::from("README.md")]
         );
+    }
+
+    #[test]
+    fn test_cli_rejects_unknown_excluded_entity() {
+        let error = Cli::try_parse_from([
+            "cloakrs",
+            "--exclude-entities",
+            "url,not-an-entity",
+            "stream",
+        ])
+        .expect_err("unknown entities should fail");
+        assert_eq!(error.kind(), clap::error::ErrorKind::InvalidValue);
     }
 
     #[test]
@@ -1717,6 +1864,7 @@ mod tests {
     fn test_stream_reader_masks_lines_and_counts_findings() {
         let global = GlobalOptions {
             locale: vec![LocaleArg::Us],
+            exclude_entities: Vec::new(),
             strategy: StrategyArg::Redact,
             min_confidence: 0.5,
             output_format: OutputFormat::Text,
@@ -1734,6 +1882,68 @@ mod tests {
         assert_eq!(summary.lines_with_findings, 1);
         assert_eq!(summary.total_findings, 1);
         assert_eq!(summary.audit_events.len(), 1);
+    }
+
+    #[test]
+    fn test_stream_excludes_urls_but_redacts_other_entities() {
+        let global = GlobalOptions {
+            locale: vec![LocaleArg::Us],
+            exclude_entities: vec![EntityTypeArg::Url],
+            strategy: StrategyArg::Redact,
+            min_confidence: 0.5,
+            output_format: OutputFormat::Text,
+            quiet: true,
+            config: None,
+            audit_log: None,
+        };
+        let input = "visit https://example.com and email jane@example.com\n";
+        let mut output = Vec::new();
+        let summary = stream_reader(&global, io::Cursor::new(input), &mut output).unwrap();
+        let output = String::from_utf8(output).unwrap();
+
+        assert_eq!(output, "visit https://example.com and email [EMAIL]\n");
+        assert_eq!(summary.total_findings, 1);
+        assert_eq!(summary.findings_by_type.get("Email"), Some(&1));
+    }
+
+    #[test]
+    fn test_url_exclusion_leaves_unrecognized_credentials_visible() {
+        let mut global = Cli::parse_from(["cloakrs", "--quiet", "stream"]).global;
+        let default_scanner = build_scanner(&global).unwrap();
+        global.exclude_entities = vec![EntityTypeArg::Url];
+        let excluded_scanner = build_scanner(&global).unwrap();
+
+        for input in [
+            "https://alice:supersecret@example.com/private",
+            "https://example.com?api_key=%61%62%63%64%65%66%67%68%69%6a%6b%6c%6d%6e%6f%70%71%72%73%74%75%76%77%78",
+        ] {
+            assert_eq!(
+                default_scanner.scan(input).unwrap().masked_text.as_deref(),
+                Some("[URL]")
+            );
+            assert_eq!(
+                excluded_scanner.scan(input).unwrap().masked_text.as_deref(),
+                Some(input)
+            );
+            let mut output = Vec::new();
+            stream_reader(&global, io::Cursor::new(input), &mut output).unwrap();
+            assert_eq!(String::from_utf8(output).unwrap(), format!("{input}\n"));
+        }
+    }
+
+    #[test]
+    fn test_stream_excluding_url_still_masks_percent_encoded_email() {
+        let global =
+            Cli::parse_from(["cloakrs", "--quiet", "--exclude-entities", "url", "stream"]).global;
+        for prefix in ["", "level=info "] {
+            let input = format!("{prefix}https://example.com?email=jane%40example.com\n");
+            let mut output = Vec::new();
+            stream_reader(&global, io::Cursor::new(input), &mut output).unwrap();
+            assert_eq!(
+                String::from_utf8(output).unwrap(),
+                format!("{prefix}https://example.com?email=[EMAIL]\n")
+            );
+        }
     }
 
     #[test]
@@ -1758,6 +1968,7 @@ mod tests {
 
         let global = GlobalOptions {
             locale: vec![LocaleArg::Us],
+            exclude_entities: Vec::new(),
             strategy: StrategyArg::Redact,
             min_confidence: 0.5,
             output_format: OutputFormat::Text,
@@ -1791,6 +2002,7 @@ mod tests {
 
         let global = GlobalOptions {
             locale: vec![LocaleArg::Us],
+            exclude_entities: Vec::new(),
             strategy: StrategyArg::Redact,
             min_confidence: 0.5,
             output_format: OutputFormat::Text,
@@ -1824,6 +2036,7 @@ mod tests {
 
         let global = GlobalOptions {
             locale: vec![LocaleArg::Us],
+            exclude_entities: Vec::new(),
             strategy: StrategyArg::Redact,
             min_confidence: 0.5,
             output_format: OutputFormat::Text,
@@ -1862,6 +2075,7 @@ deny_list = ["PRJ-12345"]
 
         let global = GlobalOptions {
             locale: vec![LocaleArg::Us],
+            exclude_entities: Vec::new(),
             strategy: StrategyArg::Redact,
             min_confidence: 0.5,
             output_format: OutputFormat::Text,
@@ -1881,12 +2095,96 @@ deny_list = ["PRJ-12345"]
     }
 
     #[test]
+    fn test_config_excludes_entities_and_preserves_nested_url_pii() {
+        let root = unique_temp_dir("config_excluded_entities");
+        fs::create_dir_all(&root).unwrap();
+        let config = root.join(".cloakrs.toml");
+        fs::write(
+            &config,
+            r#"
+exclude_entities = ["url", "hostname"]
+
+[scanner]
+exclude_entities = ["user-path"]
+"#,
+        )
+        .unwrap();
+
+        let global = GlobalOptions {
+            locale: vec![LocaleArg::Us],
+            exclude_entities: Vec::new(),
+            strategy: StrategyArg::Redact,
+            min_confidence: 0.5,
+            output_format: OutputFormat::Text,
+            quiet: true,
+            config: Some(config),
+            audit_log: None,
+        };
+        let scanner = build_scanner(&global).unwrap();
+        let result = scanner
+            .scan("visit https://example.com?email=jane%40example.com from /home/alice/project")
+            .unwrap();
+        let masked = result.masked_text.unwrap();
+
+        assert!(result.findings.iter().all(|finding| !matches!(
+            finding.entity_type,
+            EntityType::Url | EntityType::Hostname | EntityType::UserPath
+        )));
+        assert!(result
+            .findings
+            .iter()
+            .any(|finding| finding.entity_type == EntityType::Email));
+        assert!(masked.contains("https://example.com?email=[EMAIL]"));
+        assert!(masked.contains("/home/alice/project"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn test_config_rejects_unknown_excluded_entity() {
+        let root = unique_temp_dir("config_unknown_excluded_entity");
+        fs::create_dir_all(&root).unwrap();
+        let config = root.join(".cloakrs.toml");
+        fs::write(&config, "exclude_entities = [\"not-an-entity\"]\n").unwrap();
+
+        assert!(load_config(Some(&config)).is_err());
+        let global = GlobalOptions {
+            locale: vec![LocaleArg::Universal],
+            exclude_entities: Vec::new(),
+            strategy: StrategyArg::Redact,
+            min_confidence: 0.5,
+            output_format: OutputFormat::Text,
+            quiet: true,
+            config: Some(config),
+            audit_log: None,
+        };
+        let audit_args = AuditArgs {
+            path: root.clone(),
+            recursive: true,
+            respect_gitignore: true,
+            parallel: None,
+            severity: SeverityArg::Low,
+            output: None,
+        };
+        let pre_commit_args = PreCommitArgs {
+            paths: Vec::new(),
+            severity: SeverityArg::Low,
+            output: None,
+        };
+        assert!(audit_directory(&global, &audit_args).is_err());
+        assert!(pre_commit_paths(&global, &pre_commit_args).is_err());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn test_write_audit_events_outputs_jsonl_without_raw_pii() {
         let root = unique_temp_dir("audit_jsonl");
         fs::create_dir_all(&root).unwrap();
         let audit_log = root.join("audit.jsonl");
         let global = GlobalOptions {
             locale: vec![LocaleArg::Us],
+            exclude_entities: Vec::new(),
             strategy: StrategyArg::Redact,
             min_confidence: 0.5,
             output_format: OutputFormat::Text,
@@ -1918,6 +2216,7 @@ deny_list = ["PRJ-12345"]
     fn sanitize_restore_global() -> GlobalOptions {
         GlobalOptions {
             locale: vec![LocaleArg::Us],
+            exclude_entities: Vec::new(),
             strategy: StrategyArg::Redact,
             min_confidence: 0.5,
             output_format: OutputFormat::Text,
