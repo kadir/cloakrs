@@ -15,6 +15,11 @@ Version 0.4.0 adds opt-in entity exclusions through the Rust builder, CLI, and
 TOML configuration. Default detection is unchanged. Excluding a URL can leave
 embedded credentials visible; see [entity exclusions](entity-exclusions.md).
 
-Python bindings and WASM packages are future work. The current package is a Rust library and native CLI.
+The [Python binding prototype](../bindings/python/README.md) supports scanning
+and redaction through the existing Rust engine, with typed findings and Python
+string indices. It is not published on PyPI yet. See the
+[Python bindings plan](python-bindings-plan.md) for remaining sanitization and
+distribution milestones. WASM packages remain future work. The published
+packages are the Rust libraries and native CLI.
 
 See [supported entities](supported-entities.md) for the complete detection matrix.

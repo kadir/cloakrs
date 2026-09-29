@@ -1,0 +1,39 @@
+[build-system]
+requires = ["maturin>=1.15,<2"]
+build-backend = "maturin"
+
+[project]
+name = "cloakrs"
+dynamic = ["version"]
+description = "Local PII detection and redaction powered by the cloakrs Rust engine"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE.md"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Rust",
+]
+
+[project.urls]
+Homepage = "https://github.com/kadir/cloakrs"
+Repository = "https://github.com/kadir/cloakrs"
+Issues = "https://github.com/kadir/cloakrs/issues"
+
+[tool.maturin]
+python-source = "python"
+module-name = "cloakrs._native"
+bindings = "pyo3"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
