@@ -1,10 +1,11 @@
 # Python bindings plan
 
-Status: scanning and sanitizer prototypes implemented, 2026-10-01. The local
+Status: scanning, sanitization, and release packaging implemented, 2026-10-01. The
 alpha package provides `Scanner`, `ScanResult`, `Finding`, `Sanitizer`, and
 `Mapping`; see the [binding README](../bindings/python/README.md). Mapping JSON
-interoperates with the Rust CLI. Portable wheel distribution and publishing
-remain planned. No Python package has been published to PyPI.
+interoperates with the Rust CLI. Portable wheel and source-package validation
+and Trusted Publishing are defined in `python-release.yml`; see the
+[release guide](python-releases.md). First public upload remains a release step.
 
 ## Goal
 
@@ -92,11 +93,11 @@ logging, or pickling is part of the initial interface.
    representations and errors do not reveal input values. Mapping imports reject
    inconsistent metadata and ambiguous duplicate placeholders; explicit JSON
    export contains originals, while automatic pickling is disabled.
-3. **Distribution:** build all five platform wheels, install them in clean
+3. **Distribution (implemented):** build all five platform wheels, install them in clean
    environments without a Rust compiler, and run Python tests against the
    installed artifacts. Test supported Python versions, source distribution
    builds, type hints, and concurrency; retain all Rust CI checks.
-4. **Public prerelease:** document installation and two small examples (ordinary
+4. **Public prerelease (workflow implemented):** document installation and two small examples (ordinary
    masking and an LLM prompt/response round trip), configure PyPI publishing,
    and validate downloads before promoting a stable Python release. Keep Python
    publishing separate from the six-crate Rust release pipeline.

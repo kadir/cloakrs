@@ -1,8 +1,28 @@
 # cloakrs for Python
 
-Local alpha prototype: a Python interface to the cloakrs 0.4.0 Rust engine.
-The package is not published on PyPI yet. Scanning, redaction, and reversible
-prompt sanitization are implemented. Public wheel distribution is the next step.
+An alpha Python interface to the cloakrs 0.4.0 Rust engine, with local scanning,
+redaction, and reversible prompt sanitization. Input stays in your process;
+the library makes no network requests and does not invoke the CLI.
+
+## Install the prerelease
+
+```sh
+python -m pip install --only-binary=:all: 'cloakrs==0.1.0a1'
+```
+
+Requires regular CPython 3.11–3.14. Wheels include the compiled Rust engine;
+installation needs no Rust compiler or additional Python runtime dependencies.
+
+| Platform | Wheel support |
+| --- | --- |
+| Linux with glibc 2.17+ | x86_64 and ARM64 |
+| macOS 11+ | Intel and Apple Silicon |
+| Windows | x86_64 |
+
+Alpine/musl, Windows ARM64, free-threaded Python, and alternative interpreters
+do not have validated wheels. A source install requires Rust 1.83 or newer:
+`python -m pip install --no-binary=cloakrs 'cloakrs==0.1.0a1'`.
+This is an early prerelease; evaluate it on representative data before adoption.
 
 ## Use
 
@@ -140,16 +160,10 @@ sanitizer round trips in both placeholder styles and exchanges mappings with the
 real CLI in both directions. These tests require the repository checkout and the
 CLI built above. Python binding changes have a separate CI workflow.
 
-## PyPI setup for the maintainer
+## Releasing
 
-Create a [PyPI account](https://pypi.org/account/register/), verify the email
-address, and enable two-factor authentication. `pip` itself has no registration.
-The intended distribution and import name is `cloakrs`.
-
-Once release artifacts are ready, configure a
-[pending Trusted Publisher](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/)
-for the dedicated Python publishing workflow. The first successful upload creates
-the PyPI project; configuring a pending publisher does not reserve its name.
-The current prototype workflow only builds and tests artifacts, and does not upload
-packages to PyPI. Public releases will follow platform wheel and source-package
-validation.
+Python releases use `python-v<version>` tags and the dedicated
+`python-release.yml` workflow with PyPI Trusted Publishing. Branch pushes and
+pull requests validate packages without publishing. See the repository's
+[Python release guide](https://github.com/kadir/cloakrs/blob/master/docs/python-releases.md)
+for account setup, artifact checks, tagging, and verification after upload.

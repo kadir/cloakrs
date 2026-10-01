@@ -29,6 +29,28 @@ cargo test --workspace
 cargo run -p cloakrs-cli -- scan tests/fixtures/sample_text.txt
 ```
 
+## Python (alpha)
+
+The Python package uses the same Rust engine for local text scanning, masking,
+and reversible prompt sanitization:
+
+```sh
+python -m pip install --only-binary=:all: 'cloakrs==0.1.0a1'
+```
+
+```python
+from cloakrs import Scanner, Sanitizer
+
+assert Scanner().mask("Email jane@example.com") == "Email [EMAIL]"
+clean, mapping = Sanitizer().sanitize("Email jane@example.com")
+assert mapping.restore(clean) == "Email jane@example.com"
+```
+
+Keep the mapping private: it contains original values. Python 3.11–3.14 is
+supported with wheels for Linux x86_64/ARM64, macOS Intel/Apple Silicon, and
+Windows x86_64. See the [Python documentation](bindings/python/README.md) for
+platform requirements, configuration, examples, and prerelease limitations.
+
 ## Quick Start
 
 ```rust

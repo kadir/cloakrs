@@ -1,0 +1,259 @@
+name: Python release
+
+on:
+  push:
+    branches: [master, feature/python-bindings]
+    tags: ['python-v*']
+    paths:
+      - 'bindings/python/**'
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'tests/evaluation/**'
+      - '.github/workflows/python*.yml'
+  pull_request:
+    paths:
+      - 'bindings/python/**'
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'tests/evaluation/**'
+      - '.github/workflows/python*.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  metadata:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'packaging>=24,<27'
+      - id: version
+        run: python bindings/python/release.py version
+      - name: Require release tags to reference merged code
+        if: startsWith(github.ref, 'refs/tags/python-v')
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/master
+
+  wheels:
+    needs: metadata
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            manylinux: '2014'
+            interpreter: python3.11
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            manylinux: '2014'
+            interpreter: python3.11
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            manylinux: 'off'
+            interpreter: python
+          - os: macos-14
+            target: aarch64-apple-darwin
+            manylinux: 'off'
+            interpreter: python
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            manylinux: 'off'
+            interpreter: python
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '11.0'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - name: Build portable wheel with locked dependencies
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1
+        with:
+          maturin-version: 'v1.15.0'
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+          args: >-
+            --manifest-path bindings/python/Cargo.toml --release --locked
+            --out dist --compatibility pypi --interpreter ${{ matrix.interpreter }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: python-dist-wheel-${{ matrix.target }}
+          path: dist/*.whl
+          if-no-files-found: error
+
+  sdist:
+    needs: metadata
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - run: python -m pip install 'maturin==1.15.0'
+      - run: maturin sdist --manifest-path bindings/python/Cargo.toml --out dist
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: python-dist-sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  wheel-tests:
+    needs: wheels
+    name: Install ${{ matrix.platform.target }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.platform.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.14']
+        platform:
+          - {os: ubuntu-22.04, target: x86_64-unknown-linux-gnu}
+          - {os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu}
+          - {os: macos-15-intel, target: x86_64-apple-darwin}
+          - {os: macos-14, target: aarch64-apple-darwin}
+          - {os: windows-latest, target: x86_64-pc-windows-msvc}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: python-dist-wheel-${{ matrix.platform.target }}
+          path: dist
+      - run: python -m pip install 'packaging>=24,<27' 'pytest>=8,<10'
+      - name: Install wheel offline into a fresh environment with no dependencies
+        run: python bindings/python/release.py install dist
+      - name: Install the same wheel for the full regression suite
+        run: python -c "import glob, subprocess, sys; wheels = glob.glob('dist/*.whl'); assert len(wheels) == 1; subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-index', '--no-deps', '--only-binary=:all:', wheels[0]])"
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - run: cargo build --locked -p cloakrs-cli
+      - run: python -m pytest bindings/python/tests
+
+  source-tests:
+    needs: sdist
+    name: Source install on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: python-dist-sdist
+          path: dist
+      - run: python -m pip install 'packaging>=24,<27'
+      - name: Build the source archive outside the checkout and test its wheel
+        run: python bindings/python/release.py source dist
+
+  verify:
+    needs: [wheels, sdist, wheel-tests, source-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: python-dist-*
+          merge-multiple: true
+          path: dist
+      - run: python -m pip install 'packaging>=24,<27' 'twine==7.0.0'
+      - run: python bindings/python/release.py check dist
+      - run: python -m twine check --strict dist/*
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: python-release
+          path: dist/*
+          if-no-files-found: error
+
+  rust-checks:
+    if: startsWith(github.ref, 'refs/tags/python-v')
+    uses: ./.github/workflows/ci.yml
+
+  python-checks:
+    if: startsWith(github.ref, 'refs/tags/python-v')
+    uses: ./.github/workflows/python.yml
+
+  publish:
+    if: github.repository == 'kadir/cloakrs' && startsWith(github.ref, 'refs/tags/python-v')
+    needs: [metadata, verify, rust-checks, python-checks]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/cloakrs
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: python-release
+          path: dist
+      - name: Publish validated artifacts through PyPI Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+
+  published-install:
+    needs: [metadata, publish]
+    name: PyPI install ${{ matrix.platform.target }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.platform.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.14']
+        platform:
+          - {os: ubuntu-22.04, target: x86_64-unknown-linux-gnu}
+          - {os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu}
+          - {os: macos-15-intel, target: x86_64-apple-darwin}
+          - {os: macos-14, target: aarch64-apple-darwin}
+          - {os: windows-latest, target: x86_64-pc-windows-msvc}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install 'packaging>=24,<27'
+      - name: Download this exact release from PyPI without source builds
+        env:
+          PYTHON_RELEASE_VERSION: ${{ needs.metadata.outputs.version }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os, subprocess, sys, time
+          for attempt in range(8):
+              result = subprocess.run([
+                  sys.executable, "-m", "pip", "download", "--no-deps", "--no-cache-dir",
+                  "--only-binary=:all:", "--index-url", "https://pypi.org/simple",
+                  "--dest", "dist", "cloakrs==" + os.environ["PYTHON_RELEASE_VERSION"],
+              ])
+              if result.returncode == 0:
+                  break
+              if attempt == 7:
+                  raise SystemExit(result.returncode)
+              time.sleep(15)
+          PY
+      - name: Verify a clean install from the published wheel
+        run: python bindings/python/release.py install dist

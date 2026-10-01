@@ -1,6 +1,7 @@
 name: Python bindings
 
 on:
+  workflow_call:
   push:
     branches: [master, main, feature/python-bindings]
     paths:

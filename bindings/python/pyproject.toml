@@ -30,6 +30,7 @@ Issues = "https://github.com/kadir/cloakrs/issues"
 python-source = "python"
 module-name = "cloakrs._native"
 bindings = "pyo3"
+locked = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

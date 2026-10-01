@@ -1,5 +1,7 @@
 [package]
 name = "cloakrs-python"
+description = "Python bindings for local cloakrs PII detection and sanitization"
+repository = "https://github.com/kadir/cloakrs"
 version = "0.1.0-alpha.1"
 edition = "2021"
 rust-version = "1.83"
