@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "cloakrs"
 dynamic = ["version"]
-description = "Local PII detection and redaction powered by the cloakrs Rust engine"
+description = "Local PII detection, redaction, and prompt sanitization powered by Rust"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"

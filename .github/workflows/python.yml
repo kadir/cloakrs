@@ -67,6 +67,8 @@ jobs:
         run: maturin build --release --locked --out dist
       - name: Install the built wheel without resolving dependencies
         run: python -c "import glob, subprocess, sys; wheels = glob.glob('dist/*.whl'); assert len(wheels) == 1; subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--no-deps', '--force-reinstall', wheels[0]])"
+      - name: Build Rust CLI for mapping interoperability tests
+        run: cargo build --manifest-path ../../Cargo.toml --locked -p cloakrs-cli
       - name: Test installed wheel and Rust detection parity
         run: python -m pytest tests
       - name: Check public types and binding stubs

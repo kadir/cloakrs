@@ -1,9 +1,10 @@
 # Python bindings plan
 
-Status: scanning prototype implemented, 2026-09-29. The local alpha package
-provides `Scanner`, `ScanResult`, and `Finding`; see the
-[binding README](../bindings/python/README.md). Sanitization, mapping, and public
-distribution remain planned. No Python package has been published to PyPI.
+Status: scanning and sanitizer prototypes implemented, 2026-10-01. The local
+alpha package provides `Scanner`, `ScanResult`, `Finding`, `Sanitizer`, and
+`Mapping`; see the [binding README](../bindings/python/README.md). Mapping JSON
+interoperates with the Rust CLI. Portable wheel distribution and publishing
+remain planned. No Python package has been published to PyPI.
 
 ## Goal
 
@@ -17,7 +18,7 @@ Adoption is a hypothesis to validate with working examples and user feedback.
 
 ## First public interface
 
-Target interface: scanning is implemented; `Sanitizer` and `Mapping` are planned.
+The following interface is implemented in the local alpha package.
 
 ```python
 from cloakrs import Scanner, Sanitizer
@@ -52,7 +53,7 @@ emoji, combining characters, and nested encoded findings. Raw finding text is
 available through explicit access; result, finding, and mapping representations
 must not print sensitive values or entire input/output strings.
 
-Mapping JSON import/export should use the existing Rust schema for CLI
+Mapping JSON import/export uses the existing Rust schema for CLI
 interoperability. Its stored spans remain explicitly documented UTF-8 byte
 offsets. Exporting the mapping exposes original values; no automatic persistence,
 logging, or pickling is part of the initial interface.
@@ -82,13 +83,15 @@ logging, or pickling is part of the initial interface.
 
 ## Implementation order and acceptance checks
 
-1. **Scanning prototype:** build and install a local wheel with `Scanner`, typed
+1. **Scanning prototype (implemented):** build and install a local wheel with `Scanner`, typed
    findings, redaction, options, Python exceptions, and Unicode-correct offsets.
    Compare results against the Rust engine on the existing synthetic corpus.
-2. **Sanitize and restore:** wrap the existing Rust sanitizer and mapping; test
+2. **Sanitize and restore (implemented):** wrap the existing Rust sanitizer and mapping; test
    exact round trips, repeated values, placeholder collisions, tolerant/strict
    restoration, encoded URL values, and CLI-compatible mapping JSON. Check that
-   representations and errors do not reveal input values.
+   representations and errors do not reveal input values. Mapping imports reject
+   inconsistent metadata and ambiguous duplicate placeholders; explicit JSON
+   export contains originals, while automatic pickling is disabled.
 3. **Distribution:** build all five platform wheels, install them in clean
    environments without a Rust compiler, and run Python tests against the
    installed artifacts. Test supported Python versions, source distribution

@@ -117,6 +117,7 @@ dependencies = [
  "cloakrs-core",
  "cloakrs-locales",
  "pyo3",
+ "serde_json",
 ]
 
 [[package]]

@@ -1,14 +1,18 @@
-"""Local PII detection and redaction using the cloakrs Rust engine."""
+"""Local PII detection, redaction, and sanitization using the cloakrs Rust engine."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from importlib.metadata import version
+from typing import Never, SupportsIndex
 
-from ._native import ENGINE_VERSION, ENTITY_TYPES, _Scanner
+from ._native import ENGINE_VERSION, ENTITY_TYPES, _Mapping, _Sanitizer, _Scanner
 
 __version__ = version("cloakrs")
 __engine_version__ = ENGINE_VERSION
-__all__ = ["Scanner", "ScanResult", "Finding", "ENTITY_TYPES", "__version__", "__engine_version__"]
+__all__ = [
+    "Scanner", "ScanResult", "Finding", "Sanitizer", "Mapping",
+    "ENTITY_TYPES", "__version__", "__engine_version__",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,3 +105,127 @@ class Scanner:
 
     def __repr__(self) -> str:
         return "Scanner()"
+
+
+class Sanitizer:
+    """Reusable Rust prompt sanitizer with the same configuration as Scanner.
+
+    Each call returns an independent mapping. Repeated values within one call
+    share a placeholder; existing placeholders in the input are preserved.
+    """
+
+    __slots__ = ("_sanitizer",)
+
+    def __init__(
+        self,
+        *,
+        locale: str = "universal",
+        min_confidence: float = 0.0,
+        exclude_entities: Sequence[str] = (),
+        allow_list: Sequence[str] = (),
+        deny_list: Sequence[str] = (),
+    ) -> None:
+        try:
+            self._sanitizer = _Sanitizer(
+                locale=locale,
+                min_confidence=min_confidence,
+                exclude_entities=_strings(exclude_entities, "exclude_entities"),
+                allow_list=_strings(allow_list, "allow_list"),
+                deny_list=_strings(deny_list, "deny_list"),
+            )
+        except UnicodeEncodeError:
+            raise ValueError("configuration must contain valid Unicode scalar values") from None
+
+    def sanitize(
+        self, text: str, *, placeholder_style: str = "brackets",
+    ) -> tuple[str, "Mapping"]:
+        """Replace detected values with numbered bracket or brace placeholders.
+
+        Keep the returned mapping private: it holds the original values needed
+        to restore a response. Rust processing releases the interpreter lock.
+        """
+        if not isinstance(text, str):
+            raise TypeError("text must be a string")
+        if not isinstance(placeholder_style, str):
+            raise TypeError("placeholder_style must be a string")
+        try:
+            clean, mapping = self._sanitizer.sanitize(text, placeholder_style=placeholder_style)
+        except UnicodeEncodeError:
+            raise ValueError("arguments must contain valid Unicode scalar values") from None
+        return clean, Mapping._from_native(mapping)
+
+    def __repr__(self) -> str:
+        return "Sanitizer()"
+
+
+class Mapping:
+    """Opaque restore key. JSON export explicitly exposes sensitive originals.
+
+    Create through Sanitizer.sanitize() or Mapping.from_json(). Representations
+    show only the entry count; automatic pickling is disabled.
+    """
+
+    __slots__ = ("_mapping",)
+    _mapping: _Mapping
+
+    def __init__(self) -> None:
+        raise TypeError("create a Mapping with Sanitizer.sanitize() or Mapping.from_json()")
+
+    @classmethod
+    def _from_native(cls, mapping: _Mapping) -> "Mapping":
+        result = object.__new__(cls)
+        result._mapping = mapping
+        return result
+
+    @classmethod
+    def from_json(cls, data: str) -> "Mapping":
+        """Import Rust CLI-compatible mapping JSON without echoing parse errors.
+
+        Reject inconsistent spans, invalid confidence, empty placeholders, and
+        duplicate placeholders under the Rust engine's tolerant normalization.
+        """
+        if not isinstance(data, str):
+            raise TypeError("data must be a JSON string")
+        try:
+            return cls._from_native(_Mapping.from_json(data))
+        except UnicodeEncodeError:
+            raise ValueError("data must contain valid Unicode scalar values") from None
+
+    def to_json(self) -> str:
+        """Export sensitive original values in the Rust CLI's mapping schema.
+
+        Stored spans are UTF-8 byte offsets of the first occurrence, unlike
+        Finding's Python string indices. No file is written automatically.
+        """
+        return self._mapping.to_json()
+
+    def restore(self, text: str, *, strict: bool = False) -> str:
+        """Restore known placeholders, leaving unknown ones untouched.
+
+        By default, ASCII case and whitespace inside numbered placeholders are
+        tolerated. strict=True requires exact matches. Replacements are not
+        recursively restored. This operation releases the interpreter lock.
+        """
+        if not isinstance(text, str):
+            raise TypeError("text must be a string")
+        if not isinstance(strict, bool):
+            raise TypeError("strict must be a boolean")
+        try:
+            return self._mapping.restore(text, strict=strict)
+        except UnicodeEncodeError:
+            raise ValueError("text must contain valid Unicode scalar values") from None
+
+    def __len__(self) -> int:
+        return len(self._mapping)
+
+    def __repr__(self) -> str:
+        return f"Mapping(entries={len(self)})"
+
+    def __reduce_ex__(self, protocol: SupportsIndex) -> Never:
+        raise TypeError("Mapping cannot be pickled; use to_json() for explicit sensitive export")
+
+    def __reduce__(self) -> Never:
+        raise TypeError("Mapping cannot be pickled; use to_json() for explicit sensitive export")
+
+    def __getstate__(self) -> Never:
+        raise TypeError("Mapping cannot be pickled; use to_json() for explicit sensitive export")

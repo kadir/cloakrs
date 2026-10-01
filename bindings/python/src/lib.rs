@@ -1,9 +1,13 @@
 //! Thin Python bridge: recognizers and redaction remain in cloakrs-core.
 
-use cloakrs_core::{CloakError, EntityType, Locale, PiiEntity, Scanner};
+use cloakrs_core::{
+    CloakError, EntityType, Locale, PiiEntity, PlaceholderStyle, PromptMapping, PromptSanitizer,
+    Scanner,
+};
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
+use std::collections::HashSet;
 
 const ENTITIES: &[(&str, EntityType)] = &[
     ("email", EntityType::Email),
@@ -88,6 +92,39 @@ fn scan_error(_: CloakError) -> PyErr {
     PyRuntimeError::new_err("the Rust scanner could not process the input")
 }
 
+fn build_scanner(
+    py: Python<'_>,
+    locale: &str,
+    min_confidence: f64,
+    exclude_entities: Vec<String>,
+    allow_list: Vec<String>,
+    deny_list: Vec<String>,
+    masking: bool,
+) -> PyResult<Scanner> {
+    let selected_locale = self::locale(locale)?;
+    let exclusions = exclude_entities
+        .iter()
+        .map(|name| entity(name))
+        .collect::<PyResult<Vec<_>>>()?;
+    cloakrs_core::Confidence::new(min_confidence)
+        .map_err(|_| PyValueError::new_err("min_confidence must be finite and between 0 and 1"))?;
+    py.detach(move || {
+        let builder = cloakrs_locales::default_registry()
+            .into_scanner_builder()
+            .locale(selected_locale)
+            .min_confidence(min_confidence)?
+            .exclude_entities(exclusions)
+            .allow_list(allow_list)
+            .deny_list(deny_list);
+        if masking {
+            builder.build()
+        } else {
+            builder.without_masking().build()
+        }
+    })
+    .map_err(scan_error)
+}
+
 /// Map only finding boundaries, using O(findings) memory rather than O(input bytes).
 /// Sorting boundaries also handles nested findings whose ends are not ordered.
 fn python_findings(
@@ -167,26 +204,15 @@ impl NativeScanner {
         allow_list: Vec<String>,
         deny_list: Vec<String>,
     ) -> PyResult<Self> {
-        let selected_locale = self::locale(locale)?;
-        let exclusions = exclude_entities
-            .iter()
-            .map(|name| entity(name))
-            .collect::<PyResult<Vec<_>>>()?;
-        cloakrs_core::Confidence::new(min_confidence).map_err(|_| {
-            PyValueError::new_err("min_confidence must be finite and between 0 and 1")
-        })?;
-        let inner = py
-            .detach(move || {
-                cloakrs_locales::default_registry()
-                    .into_scanner_builder()
-                    .locale(selected_locale)
-                    .min_confidence(min_confidence)?
-                    .exclude_entities(exclusions)
-                    .allow_list(allow_list)
-                    .deny_list(deny_list)
-                    .build()
-            })
-            .map_err(scan_error)?;
+        let inner = build_scanner(
+            py,
+            locale,
+            min_confidence,
+            exclude_entities,
+            allow_list,
+            deny_list,
+            true,
+        )?;
         Ok(Self { inner })
     }
 
@@ -214,10 +240,140 @@ impl NativeScanner {
     }
 }
 
+#[pyclass(name = "_Sanitizer", module = "cloakrs._native", frozen)]
+struct NativeSanitizer {
+    inner: PromptSanitizer,
+}
+
+#[pymethods]
+impl NativeSanitizer {
+    #[new]
+    #[pyo3(signature = (*, locale, min_confidence, exclude_entities, allow_list, deny_list))]
+    fn new(
+        py: Python<'_>,
+        locale: &str,
+        min_confidence: f64,
+        exclude_entities: Vec<String>,
+        allow_list: Vec<String>,
+        deny_list: Vec<String>,
+    ) -> PyResult<Self> {
+        let scanner = build_scanner(
+            py,
+            locale,
+            min_confidence,
+            exclude_entities,
+            allow_list,
+            deny_list,
+            false,
+        )?;
+        Ok(Self {
+            inner: PromptSanitizer::new(scanner),
+        })
+    }
+
+    #[pyo3(signature = (text, *, placeholder_style="brackets"))]
+    fn sanitize(
+        &self,
+        py: Python<'_>,
+        text: String,
+        placeholder_style: &str,
+    ) -> PyResult<(String, NativeMapping)> {
+        let style = match placeholder_style {
+            "brackets" => PlaceholderStyle::Brackets,
+            "braces" => PlaceholderStyle::Braces,
+            _ => {
+                return Err(PyValueError::new_err(
+                    "placeholder_style must be brackets or braces",
+                ));
+            }
+        };
+        py.detach(move || {
+            self.inner
+                .sanitize_with_style(&text, style)
+                .map(|(clean, inner)| (clean, NativeMapping { inner }))
+        })
+        .map_err(scan_error)
+    }
+}
+
+fn mapping_error() -> PyErr {
+    // Serde diagnostics can include original values or caller-supplied field names.
+    PyValueError::new_err("invalid mapping JSON or inconsistent mapping entries")
+}
+
+fn validate_mapping(mapping: &PromptMapping) -> PyResult<()> {
+    let mut placeholders = HashSet::new();
+    for entry in &mapping.entries {
+        // Match the core's tolerant lookup normalization, rejecting ambiguous keys.
+        let mut key = entry.placeholder.clone();
+        for (open, close) in [('[', ']'), ('{', '}')] {
+            if let Some(inner) = entry
+                .placeholder
+                .strip_prefix(open)
+                .and_then(|s| s.strip_suffix(close))
+            {
+                key = format!("{open}{}{close}", inner.trim().to_ascii_uppercase());
+                break;
+            }
+        }
+        if entry.placeholder.is_empty()
+            || !placeholders.insert(key)
+            || entry.span_end.checked_sub(entry.span_start) != Some(entry.original.len())
+            || cloakrs_core::Confidence::new(entry.confidence).is_err()
+        {
+            return Err(mapping_error());
+        }
+    }
+    Ok(())
+}
+
+#[pyclass(name = "_Mapping", module = "cloakrs._native", frozen)]
+struct NativeMapping {
+    inner: PromptMapping,
+}
+
+#[pymethods]
+impl NativeMapping {
+    #[staticmethod]
+    fn from_json(py: Python<'_>, data: String) -> PyResult<Self> {
+        py.detach(move || {
+            let inner = serde_json::from_str(&data).map_err(|_| mapping_error())?;
+            validate_mapping(&inner)?;
+            Ok(Self { inner })
+        })
+    }
+
+    fn to_json(&self, py: Python<'_>) -> PyResult<String> {
+        py.detach(|| serde_json::to_string(&self.inner))
+            .map_err(|_| PyRuntimeError::new_err("the Rust mapping could not be serialized"))
+    }
+
+    #[pyo3(signature = (text, *, strict=false))]
+    fn restore(&self, py: Python<'_>, text: String, strict: bool) -> String {
+        py.detach(move || {
+            if strict {
+                self.inner.restore_strict(&text)
+            } else {
+                self.inner.restore(&text)
+            }
+        })
+    }
+
+    fn __len__(&self) -> usize {
+        self.inner.entries.len()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("Mapping(entries={})", self.inner.entries.len())
+    }
+}
+
 // Free-threaded Python requires separate wheel and concurrency validation.
 #[pymodule(gil_used = true)]
 fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<NativeScanner>()?;
+    module.add_class::<NativeSanitizer>()?;
+    module.add_class::<NativeMapping>()?;
     module.add("ENGINE_VERSION", cloakrs_locales::version())?;
     module.add(
         "ENTITY_TYPES",
