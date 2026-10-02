@@ -1,13 +1,13 @@
 # Python bindings plan
 
-Status: Python [0.1.0a1](https://pypi.org/project/cloakrs/0.1.0a1/) published
-on 2026-10-01. The
+Status: Python [0.1.0a2](https://pypi.org/project/cloakrs/0.1.0a2/) published
+on 2026-10-02 with the email quote-boundary correction. The
 alpha package provides `Scanner`, `ScanResult`, `Finding`, `Sanitizer`, and
 `Mapping`; see the [binding README](../bindings/python/README.md). Mapping JSON
 interoperates with the Rust CLI. Portable wheel and source-package validation
 and Trusted Publishing are defined in `python-release.yml`; see the
 [release guide](python-releases.md). The
-[release workflow](https://github.com/kadir/cloakrs/actions/runs/36903294930)
+[release workflow](https://github.com/kadir/cloakrs/actions/runs/36986397728)
 passed all required checks, including ten installs from PyPI across five
 platforms on Python 3.11 and 3.14.
 
@@ -100,7 +100,7 @@ logging, or pickling is part of the initial interface.
    environments without a Rust compiler, and run Python tests against the
    installed artifacts. Test supported Python versions, source distribution
    builds, type hints, and concurrency; retain all Rust CI checks.
-4. **Public prerelease (0.1.0a1 published and verified):** document installation and two small examples (ordinary
+4. **Public prerelease (0.1.0a2 published and verified):** document installation and two small examples (ordinary
    masking and an LLM prompt/response round trip), configure PyPI publishing,
    and validate downloads before promoting a stable Python release. Keep Python
    publishing separate from the six-crate Rust release pipeline.
