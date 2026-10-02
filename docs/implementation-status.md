@@ -15,12 +15,14 @@ Version 0.4.0 adds opt-in entity exclusions through the Rust builder, CLI, and
 TOML configuration. Default detection is unchanged. Excluding a URL can leave
 embedded credentials visible; see [entity exclusions](entity-exclusions.md).
 
-The [Python binding prototype](../bindings/python/README.md) supports scanning,
+The [Python alpha package](../bindings/python/README.md) supports scanning,
 redaction, and reversible prompt sanitization through the existing Rust engine,
 with typed findings, Python string indices, and CLI-compatible mapping JSON.
-It is not published on PyPI yet. See the
-[Python bindings plan](python-bindings-plan.md) for remaining distribution and
-publishing milestones. WASM packages remain future work. The published
-packages are the Rust libraries and native CLI.
+Version [0.1.0a1](https://pypi.org/project/cloakrs/0.1.0a1/) is published on PyPI
+with wheels for Linux x86_64/ARM64, macOS Intel/Apple Silicon, and Windows
+x86_64, plus a source package. Release checks verify downloads and clean
+installs on Python 3.11 and 3.14 for all five targets. See the
+[Python bindings plan](python-bindings-plan.md) and
+[release guide](python-releases.md). WASM packages remain future work.
 
 See [supported entities](supported-entities.md) for the complete detection matrix.

@@ -1,11 +1,15 @@
 # Python bindings plan
 
-Status: scanning, sanitization, and release packaging implemented, 2026-10-01. The
+Status: Python [0.1.0a1](https://pypi.org/project/cloakrs/0.1.0a1/) published
+on 2026-10-01. The
 alpha package provides `Scanner`, `ScanResult`, `Finding`, `Sanitizer`, and
 `Mapping`; see the [binding README](../bindings/python/README.md). Mapping JSON
 interoperates with the Rust CLI. Portable wheel and source-package validation
 and Trusted Publishing are defined in `python-release.yml`; see the
-[release guide](python-releases.md). First public upload remains a release step.
+[release guide](python-releases.md). The
+[release workflow](https://github.com/kadir/cloakrs/actions/runs/36903294930)
+passed all required checks, including ten installs from PyPI across five
+platforms on Python 3.11 and 3.14.
 
 ## Goal
 
@@ -19,7 +23,7 @@ Adoption is a hypothesis to validate with working examples and user feedback.
 
 ## First public interface
 
-The following interface is implemented in the local alpha package.
+The following interface is implemented in the published alpha package.
 
 ```python
 from cloakrs import Scanner, Sanitizer
@@ -78,9 +82,8 @@ logging, or pickling is part of the initial interface.
   need their own validation before being advertised as supported.
 - Ship type hints and `py.typed`. Release the interpreter lock during Rust work,
   using owned inputs and testing shared-instance concurrency.
-- Proposed distribution/import name: `cloakrs`. Its PyPI metadata endpoint
-  returned 404 during planning; first publication still needs to establish the
-  project under the maintainer's PyPI account.
+- Distribution/import name: `cloakrs`. The first upload created the PyPI
+  project through the maintainer's configured Trusted Publisher.
 
 ## Implementation order and acceptance checks
 
@@ -97,7 +100,7 @@ logging, or pickling is part of the initial interface.
    environments without a Rust compiler, and run Python tests against the
    installed artifacts. Test supported Python versions, source distribution
    builds, type hints, and concurrency; retain all Rust CI checks.
-4. **Public prerelease (workflow implemented):** document installation and two small examples (ordinary
+4. **Public prerelease (0.1.0a1 published and verified):** document installation and two small examples (ordinary
    masking and an LLM prompt/response round trip), configure PyPI publishing,
    and validate downloads before promoting a stable Python release. Keep Python
    publishing separate from the six-crate Rust release pipeline.
@@ -105,5 +108,6 @@ logging, or pickling is part of the initial interface.
 Initial scope is text scanning, redaction, and prompt sanitization. Batch APIs,
 DataFrame helpers, async conveniences, framework integrations, file adapters,
 additional masking strategies, and Python-defined recognizers can follow based
-on usage. The first deliverable is an installable local wheel with scanning and
-parity tests, before introducing public release automation.
+on usage. The initial public prerelease is complete. The next step is gathering
+feedback from Python integrations before selecting further API additions or
+promoting a stable Python release.
