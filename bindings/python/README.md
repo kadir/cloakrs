@@ -1,13 +1,13 @@
 # cloakrs for Python
 
-An alpha Python interface to the cloakrs 0.4.0 Rust engine, with local scanning,
+An alpha Python interface to the cloakrs 0.4.1 Rust engine, with local scanning,
 redaction, and reversible prompt sanitization. Input stays in your process;
 the library makes no network requests and does not invoke the CLI.
 
 ## Install the prerelease
 
 ```sh
-python -m pip install --only-binary=:all: 'cloakrs==0.1.0a1'
+python -m pip install --only-binary=:all: 'cloakrs==0.1.0a2'
 ```
 
 Requires regular CPython 3.11–3.14. Wheels include the compiled Rust engine;
@@ -21,8 +21,14 @@ installation needs no Rust compiler or additional Python runtime dependencies.
 
 Alpine/musl, Windows ARM64, free-threaded Python, and alternative interpreters
 do not have validated wheels. A source install requires Rust 1.83 or newer:
-`python -m pip install --no-binary=cloakrs 'cloakrs==0.1.0a1'`.
+`python -m pip install --no-binary=cloakrs 'cloakrs==0.1.0a2'`.
 This is an early prerelease; evaluate it on representative data before adoption.
+
+Version 0.1.0a2 includes the email quote-boundary correction from the 0.4.1
+engine source. Python and Rust/CLI publication are independent.
+
+For a runnable, offline example with synthetic inputs, see
+[the quickstart demo](https://github.com/kadir/cloakrs/blob/master/bindings/python/examples/quickstart.py).
 
 ## Use
 

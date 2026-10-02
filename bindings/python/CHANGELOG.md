@@ -1,5 +1,18 @@
 # Python changelog
 
+## 0.1.0a2
+
+Corrective prerelease, bundling the cloakrs 0.4.1 Rust engine source.
+
+- Preserve paired surrounding single quotes when scanning, masking, or
+  sanitizing an email, including encoded URL query values. For example,
+  `VALUES ('jane@example.com')` now masks to `VALUES ('[EMAIL]')`.
+- Preserve apostrophes inside email local parts and unpaired leading
+  apostrophes. Raw-text paired outer quotes are treated as delimiters;
+  this is a boundary heuristic, not SQL parsing.
+- Add regression coverage for Unicode indices, mapping byte spans, both
+  placeholder styles, and exact restoration. No public API changes.
+
 ## 0.1.0a1
 
 First Python prerelease, powered by the cloakrs 0.4.0 Rust engine.

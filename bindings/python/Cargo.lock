@@ -79,7 +79,7 @@ dependencies = [
 
 [[package]]
 name = "cloakrs-core"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "aes-gcm",
  "base64",
@@ -93,7 +93,7 @@ dependencies = [
 
 [[package]]
 name = "cloakrs-locales"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "cloakrs-core",
  "cloakrs-patterns",
@@ -103,7 +103,7 @@ dependencies = [
 
 [[package]]
 name = "cloakrs-patterns"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "cloakrs-core",
  "once_cell",
@@ -112,7 +112,7 @@ dependencies = [
 
 [[package]]
 name = "cloakrs-python"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "cloakrs-core",
  "cloakrs-locales",

@@ -35,7 +35,7 @@ The Python package uses the same Rust engine for local text scanning, masking,
 and reversible prompt sanitization:
 
 ```sh
-python -m pip install --only-binary=:all: 'cloakrs==0.1.0a1'
+python -m pip install --only-binary=:all: 'cloakrs==0.1.0a2'
 ```
 
 ```python

@@ -40,7 +40,7 @@ text; adapter parsing, structure-preserving output, restoration, and CLI exit
 codes have their own tests. In particular, an escaped JSON value missed here
 does not imply that the JSON adapter misses the decoded value.
 
-## Scoring and initial baseline
+## Scoring and current baseline
 
 A true positive requires the same entity type and exact half-open UTF-8 byte
 span. A wrong boundary/type counts as one false positive and one false negative.
@@ -50,25 +50,28 @@ Duplicate predictions count as extra findings. Micro precision is
 Negative-case false-positive rate is the fraction of clean snippets with any
 finding, which is different from per-finding precision.
 
-The initial baseline has **38 true positives, 1 false positive, and 6 false
-negatives**: precision **97.44%**, recall **86.36%**, F1 **91.57%** on this corpus
-only. None of the 16 negative cases was flagged. These are regression results,
-not advertised product accuracy.
+The current baseline (0.4.1 engine source, bundled in Python 0.1.0a2) has
+**39 true positives, 0 false positives, and 5 false negatives**: precision
+**100%**, recall **88.64%**, F1 **93.98%** on this corpus only. None of the
+16 negative cases was flagged. These are regression results, not advertised
+product accuracy.
+
+The initial baseline had 38 true positives, 1 false positive, and 6 false
+negatives. The email quote-boundary fix corrects the `sql-email` prediction
+from bytes `33..50` to `34..50`; all labels and other predictions are unchanged.
 
 | Category | True positives | False positives | False negatives |
 | --- | ---: | ---: | ---: |
 | Prompt | 11 | 0 | 0 |
 | Log | 10 | 0 | 0 |
 | URL | 5 | 0 | 0 |
-| Structured text | 2 | 1 | 1 |
+| Structured text | 3 | 0 | 0 |
 | Locale | 10 | 0 | 0 |
 | Negative | 0 | 0 | 0 |
 | Challenge | 0 | 0 | 5 |
 
 Known gaps retained in this baseline:
 
-- `sql-email`: the raw-text email recognizer includes the opening SQL quote.
-  This boundary error contributes both an extra and a missing finding.
 - `challenge-obfuscated-email`: `[at]` / `[dot]` obfuscation is not detected.
 - `challenge-unicode-name`: the limited dictionary misses the labeled Polish name.
 - `challenge-dutch-address`: the address recognizer handles US-style addresses.

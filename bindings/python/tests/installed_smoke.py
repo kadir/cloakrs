@@ -15,7 +15,7 @@ def main():
     parser.add_argument("--version", required=True)
     args = parser.parse_args()
     assert cloakrs.__version__ == metadata.version("cloakrs") == args.version
-    assert cloakrs.__engine_version__ == "0.4.0"
+    assert cloakrs.__engine_version__ == "0.4.1"
     assert not metadata.requires("cloakrs")
     assert "site-packages" in Path(cloakrs.__file__).parts
     for name in ("py.typed", "_native.pyi"):
@@ -26,6 +26,12 @@ def main():
     assert text[finding.start:finding.end] == finding.text == "jane@example.com"
     assert scanner.mask(text) == "👩🏽‍💻 Résumé: [EMAIL]\r\n"
     sanitizer = Sanitizer(locale="us")
+    for email in ("jane@example.com", "o'hara@example.com"):
+        quoted = f"日本語 🙂 VALUES ('{email}');"
+        assert scanner.mask(quoted) == "日本語 🙂 VALUES ('[EMAIL]');"
+        clean, mapping = sanitizer.sanitize(quoted)
+        assert clean == "日本語 🙂 VALUES ('[EMAIL_1]');"
+        assert Mapping.from_json(mapping.to_json()).restore(clean, strict=True) == quoted
     for style in ("brackets", "braces"):
         clean, mapping = sanitizer.sanitize(text, placeholder_style=style)
         assert "jane@example.com" not in clean

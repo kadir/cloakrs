@@ -1,6 +1,6 @@
 # Implementation Status
 
-cloakrs 0.4.0 is prepared as a Rust workspace with library crates and a CLI:
+The published Rust/CLI release is cloakrs 0.4.0. The workspace contains:
 
 - `cloakrs-core`
 - `cloakrs-patterns`
@@ -18,6 +18,8 @@ embedded credentials visible; see [entity exclusions](entity-exclusions.md).
 The [Python alpha package](../bindings/python/README.md) supports scanning,
 redaction, and reversible prompt sanitization through the existing Rust engine,
 with typed findings, Python string indices, and CLI-compatible mapping JSON.
+Python 0.1.0a2 is prepared with the email quote-boundary fix from the 0.4.1
+engine source. This does not publish Rust crates or native CLI archives.
 Version [0.1.0a1](https://pypi.org/project/cloakrs/0.1.0a1/) is published on PyPI
 with wheels for Linux x86_64/ARM64, macOS Intel/Apple Silicon, and Windows
 x86_64, plus a source package. Release checks verify downloads and clean

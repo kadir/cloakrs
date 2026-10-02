@@ -60,6 +60,27 @@ def test_restore_does_not_recursively_expand_original_values():
         assert mapping.restore("[EMAIL_1] [EMAIL_2]", strict=strict) == "[EMAIL_2] bob@example.com"
 
 
+@pytest.mark.parametrize("style,placeholder", [
+    ("brackets", "[EMAIL_1]"), ("braces", "{EMAIL_1}"),
+])
+@pytest.mark.parametrize("email", ["jane@example.com", "o'hara@example.com"])
+def test_quoted_email_sanitization_and_mapping_round_trip(style, placeholder, email):
+    text = f"日本語 🙂 email: '{email}'"
+    clean, mapping = Sanitizer().sanitize(text, placeholder_style=style)
+    assert clean == f"日本語 🙂 email: '{placeholder}'"
+    entry, = json.loads(mapping.to_json())["entries"]
+    assert entry["original"] == email
+    assert text.encode()[entry["span_start"]:entry["span_end"]].decode() == email
+    assert Mapping.from_json(mapping.to_json()).restore(clean, strict=True) == text
+
+
+def test_encoded_quoted_email_sanitization_round_trip():
+    text = "🙂 https://example.com?email=%27jane%40example.com%27"
+    clean, mapping = Sanitizer(exclude_entities=["url"]).sanitize(text)
+    assert clean == "🙂 https://example.com?email=%27[EMAIL_1]%27"
+    assert Mapping.from_json(mapping.to_json()).restore(clean, strict=True) == text
+
+
 @pytest.mark.parametrize("excluded", [(), ("url",)])
 def test_unicode_and_nested_encoded_values_keep_rust_byte_offsets(excluded):
     text = "👩🏽‍💻 e\u0301 日本語: https://example.com?email=jane%40example.com&ssn=123-45-6789"

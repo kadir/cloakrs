@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased] - Rust 0.4.1
+
+The 0.4.1 engine source is bundled in Python 0.1.0a2. Rust crates and native
+CLI archives have a separate release process; this section is not a Rust
+publication announcement.
+
+### Fixed
+- Raw-text email findings preserve paired surrounding single quotes during
+  masking and sanitization, including percent-encoded URL query values.
+  Apostrophes inside addresses and unpaired leading apostrophes remain valid.
+- Corrected the SQL email span in the synthetic evaluation baseline; labels
+  and all other predictions are unchanged.
+
 ## [0.4.0] - 2026-09-29
 
 ### Added

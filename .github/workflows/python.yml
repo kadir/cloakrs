@@ -3,7 +3,7 @@ name: Python bindings
 on:
   workflow_call:
   push:
-    branches: [master, main, feature/python-bindings]
+    branches: [master, main, feature/python-bindings, "fix/**"]
     paths:
       - 'bindings/python/**'
       - 'crates/**'
@@ -72,8 +72,10 @@ jobs:
         run: cargo build --manifest-path ../../Cargo.toml --locked -p cloakrs-cli
       - name: Test installed wheel and Rust detection parity
         run: python -m pytest tests
+      - name: Run the offline quickstart
+        run: python examples/quickstart.py
       - name: Check public types and binding stubs
-        run: python -m mypy python/cloakrs tests/typing_smoke.py
+        run: python -m mypy python/cloakrs tests/typing_smoke.py examples/quickstart.py
       - uses: actions/upload-artifact@v4
         with:
           name: python-${{ matrix.python }}-rust-${{ matrix.rust }}-${{ matrix.os }}

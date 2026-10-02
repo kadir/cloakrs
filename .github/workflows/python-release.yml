@@ -2,7 +2,7 @@ name: Python release
 
 on:
   push:
-    branches: [master, feature/python-bindings]
+    branches: [master, feature/python-bindings, "fix/**"]
     tags: ['python-v*']
     paths:
       - 'bindings/python/**'

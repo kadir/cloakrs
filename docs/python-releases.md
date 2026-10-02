@@ -60,11 +60,11 @@ python bindings/python/release.py install bindings/python/dist
 
 ## Publish
 
-For the first prerelease, tag the tested, merged commit:
+For this corrective prerelease, tag the tested, merged commit:
 
 ```sh
-git tag -a python-v0.1.0a1 -m 'Python 0.1.0a1'
-git push origin python-v0.1.0a1
+git tag -a python-v0.1.0a2 -m 'Python 0.1.0a2'
+git push origin python-v0.1.0a2
 ```
 
 The tag must match the normalized package version. Never move a published tag

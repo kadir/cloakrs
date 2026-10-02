@@ -32,12 +32,26 @@ impl Recognizer for EmailRecognizer {
         EMAIL_REGEX
             .find_iter(text)
             .filter(|matched| self.is_valid_match(text, matched.start(), matched.end()))
-            .map(|matched| PiiEntity {
-                entity_type: self.entity_type(),
-                span: Span::new(matched.start(), matched.end()),
-                text: matched.as_str().to_string(),
-                confidence: self.compute_confidence(text, matched.start(), matched.as_str()),
-                recognizer_id: self.id().to_string(),
+            .map(|matched| {
+                let mut start = matched.start();
+                let end = matched.end();
+                // Apostrophes are valid inside local parts. Interpret just one
+                // paired outer quote as a text delimiter, after checking the
+                // original boundaries so URL/path suppression still applies.
+                if text[start..end].starts_with('\'')
+                    && text[end..].starts_with('\'')
+                    && self.validate(&text[start + 1..end])
+                {
+                    start += 1;
+                }
+                let candidate = &text[start..end];
+                PiiEntity {
+                    entity_type: self.entity_type(),
+                    span: Span::new(start, end),
+                    text: candidate.to_string(),
+                    confidence: self.compute_confidence(text, start, candidate),
+                    recognizer_id: self.id().to_string(),
+                }
             })
             .collect()
     }
@@ -168,6 +182,57 @@ mod tests {
     #[test]
     fn test_email_apostrophe_local_detected() {
         assert_eq!(texts("o'hara@example.com"), ["o'hara@example.com"]);
+    }
+
+    #[test]
+    fn test_email_paired_outer_quotes_excluded_from_byte_span() {
+        for (input, expected) in [
+            (
+                "INSERT INTO users VALUES ('jane@example.com');",
+                "jane@example.com",
+            ),
+            (
+                "日本語 🙂 email: 'o'hara@example.com'",
+                "o'hara@example.com",
+            ),
+            ("'o''hara@example.com'", "o''hara@example.com"),
+            ("''jane@example.com'", "'jane@example.com"),
+            ("'\"quoted\"@example.com'", "\"quoted\"@example.com"),
+        ] {
+            let findings = EmailRecognizer.scan(input);
+            assert_eq!(findings.len(), 1, "{input}");
+            let start = input.find(expected).unwrap();
+            assert_eq!(findings[0].text, expected, "{input}");
+            assert_eq!(findings[0].span, Span::new(start, start + expected.len()));
+        }
+    }
+
+    #[test]
+    fn test_email_unpaired_and_local_part_apostrophes_preserved() {
+        for email in ["'jane@example.com", "jane'@example.com", "'@example.com"] {
+            assert_eq!(texts(email), [email]);
+        }
+        // Trimming the opening quote would leave an empty local part.
+        assert_eq!(texts("'@example.com'"), ["'@example.com"]);
+    }
+
+    #[test]
+    fn test_email_quote_normalization_preserves_url_and_path_suppression() {
+        for input in [
+            "https://'jane@example.com'",
+            "prefix/'jane@example.com'",
+            "'jane@example.com_suffix'",
+        ] {
+            assert!(texts(input).is_empty(), "{input}");
+        }
+    }
+
+    #[test]
+    fn test_email_multiple_quoted_values() {
+        assert_eq!(
+            texts("VALUES ('jane@example.com', 'o'hara@example.com')"),
+            ["jane@example.com", "o'hara@example.com"]
+        );
     }
 
     #[test]

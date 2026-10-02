@@ -78,6 +78,27 @@ def test_results_are_typed_immutable_and_do_not_leak_in_repr():
         result.findings[0].text = "changed"
 
 
+@pytest.mark.parametrize("prefix", ["", "日本語 🙂 "])
+@pytest.mark.parametrize("email", ["jane@example.com", "o'hara@example.com"])
+def test_single_quote_delimiters_preserve_python_offsets(prefix, email):
+    text = prefix + f"INSERT INTO users VALUES ('{email}');"
+    result = Scanner().scan(text)
+    assert result.masked_text == prefix + "INSERT INTO users VALUES ('[EMAIL]');"
+    assert len(result.findings) == 1
+    finding = result.findings[0]
+    assert finding.text == text[finding.start:finding.end] == email
+    assert finding.start == text.index(email)
+
+
+def test_encoded_single_quote_delimiters_are_not_masked():
+    text = "🙂 https://example.com?email=%27jane%40example.com%27"
+    result = Scanner(exclude_entities=["url"]).scan(text)
+    assert result.masked_text == "🙂 https://example.com?email=%27[EMAIL]%27"
+    assert len(result.findings) == 1
+    finding = result.findings[0]
+    assert finding.text == text[finding.start:finding.end] == "jane%40example.com"
+
+
 def test_exclusions_locale_and_literal_list_precedence():
     scanner = Scanner(locale="nl", exclude_entities=["email", "url"],
                       deny_list=["jane@example.com", "kept@example.com"],
@@ -168,8 +189,8 @@ def test_shared_scanner_calls_do_not_mix_results():
 
 
 def test_installed_wheel_has_version_type_hints_and_native_extension():
-    assert cloakrs.__version__ == metadata.version("cloakrs") == "0.1.0a1"
-    assert cloakrs.__engine_version__ == "0.4.0"
+    assert cloakrs.__version__ == metadata.version("cloakrs") == "0.1.0a2"
+    assert cloakrs.__engine_version__ == "0.4.1"
     assert resources.files("cloakrs").joinpath("py.typed").is_file()
     assert resources.files("cloakrs").joinpath("_native.pyi").is_file()
     assert "site-packages" in Path(cloakrs.__file__).parts
